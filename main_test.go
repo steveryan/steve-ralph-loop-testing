@@ -198,3 +198,81 @@ func TestNavigateToPostByTitle(t *testing.T) {
 		t.Errorf("response should contain post body, got: %s", body)
 	}
 }
+
+func TestRecentPostsOnWelcomePage(t *testing.T) {
+	// Clear the global posts slice before test
+	posts = []Post{}
+
+	// Set up the handler
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			welcomeHandler(w, r)
+		} else if r.URL.Path == "/new" {
+			newPostHandler(w, r)
+		} else {
+			postHandler(w, r)
+		}
+	})
+
+	// Create multiple posts to test the recent posts list
+	baseTime := time.Now()
+	posts = append(posts, Post{
+		Title:   "First Post",
+		Body:    "Body 1",
+		Created: baseTime,
+	})
+	posts = append(posts, Post{
+		Title:   "Second Post",
+		Body:    "Body 2",
+		Created: baseTime.Add(1 * time.Second),
+	})
+	posts = append(posts, Post{
+		Title:   "Third Post",
+		Body:    "Body 3",
+		Created: baseTime.Add(2 * time.Second),
+	})
+
+	// Request the welcome page
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	// Check status code is OK (200)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	body := rr.Body.String()
+
+	// Check that the response contains "Recent Posts" heading
+	if !strings.Contains(body, "<h2>Recent Posts</h2>") {
+		t.Errorf("welcome page should contain 'Recent Posts' heading, got: %s", body)
+	}
+
+	// Check that the response contains links to the posts in reverse order (newest first)
+	if !strings.Contains(body, `<a href="/Third_Post">Third Post</a>`) {
+		t.Errorf("welcome page should contain link to 'Third Post', got: %s", body)
+	}
+	if !strings.Contains(body, `<a href="/Second_Post">Second Post</a>`) {
+		t.Errorf("welcome page should contain link to 'Second Post', got: %s", body)
+	}
+	if !strings.Contains(body, `<a href="/First_Post">First Post</a>`) {
+		t.Errorf("welcome page should contain link to 'First Post', got: %s", body)
+	}
+
+	// Verify that the posts appear in the correct order (newest first)
+	thirdPostPos := strings.Index(body, `<a href="/Third_Post">`)
+	secondPostPos := strings.Index(body, `<a href="/Second_Post">`)
+	firstPostPos := strings.Index(body, `<a href="/First_Post">`)
+
+	if thirdPostPos > secondPostPos || secondPostPos > firstPostPos {
+		t.Errorf("posts should be in reverse chronological order (newest first), got: %s", body)
+	}
+}
+

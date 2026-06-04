@@ -16,15 +16,36 @@ type Post struct {
 var posts []Post
 
 func welcomeHandler(w http.ResponseWriter, r *http.Request) {
-	html := `<!DOCTYPE html>
+	// Get the 10 most recent posts (sorted newest first)
+	recentPosts := posts
+	if len(recentPosts) > 10 {
+		recentPosts = recentPosts[len(recentPosts)-10:]
+	}
+	// Reverse to show newest first
+	for i, j := 0, len(recentPosts)-1; i < j; i, j = i+1, j-1 {
+		recentPosts[i], recentPosts[j] = recentPosts[j], recentPosts[i]
+	}
+
+	postLinksHTML := ""
+	if len(recentPosts) > 0 {
+		postLinksHTML = "<h2>Recent Posts</h2>\n\t<ul>\n"
+		for _, post := range recentPosts {
+			postURL := strings.ReplaceAll(post.Title, " ", "_")
+			postLinksHTML += fmt.Sprintf("\t\t<li><a href=\"/%s\">%s</a></li>\n", postURL, post.Title)
+		}
+		postLinksHTML += "\t</ul>"
+	}
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
 	<title>Blog</title>
 </head>
 <body>
 	<h1>Welcome to the blog</h1>
+	%s
 </body>
-</html>`
+</html>`, postLinksHTML)
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, html)
 }
