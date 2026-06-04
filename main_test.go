@@ -66,3 +66,85 @@ func TestWelcomePageIsDefault(t *testing.T) {
 		t.Errorf("welcome page should be valid HTML, got: %s", body)
 	}
 }
+
+func TestNewPostPageReachable(t *testing.T) {
+	// Set up the handler like in main
+	mux := http.NewServeMux()
+	mux.HandleFunc("/new", newPostHandler)
+
+	// Test that the new post page is reachable
+	req, err := http.NewRequest("GET", "/new", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	// Check status code is OK (200)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Check the response contains the correct form elements
+	body := rr.Body.String()
+	if !strings.Contains(body, "Create a New Post") {
+		t.Errorf("new post page should contain 'Create a New Post', got: %s", body)
+	}
+	if !strings.Contains(body, `name="title"`) {
+		t.Errorf("new post page should contain title input field, got: %s", body)
+	}
+	if !strings.Contains(body, `name="body"`) {
+		t.Errorf("new post page should contain body textarea field, got: %s", body)
+	}
+	if !strings.Contains(body, "Create Post") {
+		t.Errorf("new post page should contain submit button, got: %s", body)
+	}
+}
+
+func TestNewPostFormSubmissionPersists(t *testing.T) {
+	// Clear the global posts slice before test
+	posts = []Post{}
+
+	// Set up the handler like in main
+	mux := http.NewServeMux()
+	mux.HandleFunc("/new", newPostHandler)
+
+	// Create a POST request to submit a new post
+	formData := strings.NewReader("title=Test+Title&body=Test+Body")
+	req, err := http.NewRequest("POST", "/new", formData)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	// Check status code is OK (200)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Check that the post was persisted
+	if len(posts) != 1 {
+		t.Errorf("expected 1 post to be persisted, got %d", len(posts))
+	} else {
+		if posts[0].Title != "Test Title" {
+			t.Errorf("expected post title to be 'Test Title', got '%s'", posts[0].Title)
+		}
+		if posts[0].Body != "Test Body" {
+			t.Errorf("expected post body to be 'Test Body', got '%s'", posts[0].Body)
+		}
+		if posts[0].Created.IsZero() {
+			t.Errorf("expected post created time to be set")
+		}
+	}
+
+	// Check that the response indicates success
+	if !strings.Contains(rr.Body.String(), "Post created") {
+		t.Errorf("response should contain 'Post created', got: %s", rr.Body.String())
+	}
+}
