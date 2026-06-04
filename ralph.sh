@@ -165,3 +165,20 @@ done
 
 echo
 echo "ralph: done. No pending (unblocked) '- [ ]' items remain in $SPEC."
+
+# If all tasks are complete and we're on a feature branch, push and open a PR.
+if [ "$(pending_count)" -eq 0 ]; then
+  branch="$(git symbolic-ref --short HEAD)"
+  if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+    echo "ralph: on $branch — skipping push/PR (create a feature branch first)." >&2
+  else
+    if ! command -v gh >/dev/null 2>&1; then
+      echo "ralph: 'gh' CLI not found — skipping PR creation. Install it to auto-open PRs." >&2
+    else
+      echo "ralph: pushing branch '$branch' and opening PR..."
+      git push -u origin "$branch"
+      gh pr create --fill
+      echo "ralph: PR opened."
+    fi
+  fi
+fi
