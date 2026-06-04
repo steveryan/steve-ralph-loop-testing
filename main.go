@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -67,9 +68,52 @@ func newPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func postHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract the post title from the URL path
+	// Remove leading "/" and convert underscores to spaces
+	postTitle := strings.TrimPrefix(r.URL.Path, "/")
+	postTitle = strings.ReplaceAll(postTitle, "_", " ")
+
+	// Find the post with the matching title
+	var foundPost *Post
+	for i := range posts {
+		if posts[i].Title == postTitle {
+			foundPost = &posts[i]
+			break
+		}
+	}
+
+	if foundPost == nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, "Post not found")
+		return
+	}
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+	<title>%s</title>
+</head>
+<body>
+	<h1>%s</h1>
+	<p>%s</p>
+</body>
+</html>`, foundPost.Title, foundPost.Title, foundPost.Body)
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprint(w, html)
+}
+
 func main() {
-	http.HandleFunc("/", welcomeHandler)
-	http.HandleFunc("/new", newPostHandler)
+	// Create a custom router
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			welcomeHandler(w, r)
+		} else if r.URL.Path == "/new" {
+			newPostHandler(w, r)
+		} else {
+			postHandler(w, r)
+		}
+	})
 
 	fmt.Println("Server running on http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
