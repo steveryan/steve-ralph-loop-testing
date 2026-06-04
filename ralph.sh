@@ -141,6 +141,17 @@ while [ "$(pending_count)" -gt 0 ]; do
     fi
   fi
 
+  # Commit the iteration's transcript log so the loop history is preserved
+  # in git. Only runs after a successful agent commit and verification.
+  if [ -f "$log" ]; then
+    git add -- "$log"
+    if ! git diff --cached --quiet -- "$log"; then
+      git commit -m "ralph: log for iteration $iter ($(git rev-parse --short "$new_head"))" -- "$log"
+    fi
+  else
+    echo "ralph: no transcript at $log to commit (skipping log commit)." >&2
+  fi
+
   remaining="$(pending_count)"
   echo "ralph: $remaining pending task(s) in $SPEC (blocked tasks are not counted)"
 
