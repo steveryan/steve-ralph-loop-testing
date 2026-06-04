@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestWebserverIsAccessible(t *testing.T) {
@@ -146,5 +147,54 @@ func TestNewPostFormSubmissionPersists(t *testing.T) {
 	// Check that the response indicates success
 	if !strings.Contains(rr.Body.String(), "Post created") {
 		t.Errorf("response should contain 'Post created', got: %s", rr.Body.String())
+	}
+}
+
+func TestNavigateToPostByTitle(t *testing.T) {
+	// Clear the global posts slice before test
+	posts = []Post{}
+
+	// Set up the handler like in main
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			welcomeHandler(w, r)
+		} else if r.URL.Path == "/new" {
+			newPostHandler(w, r)
+		} else {
+			postHandler(w, r)
+		}
+	})
+
+	// Create a post with title "test post"
+	testPost := Post{
+		Title:   "test post",
+		Body:    "This is a test post body",
+		Created: time.Now(),
+	}
+	posts = append(posts, testPost)
+
+	// Navigate to /test_post
+	req, err := http.NewRequest("GET", "/test_post", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	// Check status code is OK (200)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Check that the response contains the post title and body
+	body := rr.Body.String()
+	if !strings.Contains(body, "test post") {
+		t.Errorf("response should contain post title 'test post', got: %s", body)
+	}
+	if !strings.Contains(body, "This is a test post body") {
+		t.Errorf("response should contain post body, got: %s", body)
 	}
 }
