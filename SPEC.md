@@ -14,7 +14,7 @@ You may store data such as the text content of the posts in memory, or files in 
 
 ## Tasks
 
-- [ ] Create the basic go app that runs a local webserver
+- [x] Create the basic go app that runs a local webserver
 - [ ] Create a test that the webserver is able to be accessed
 - [ ] Create a welcome page that is the home page of the blog. For now it should just say "Welcome to the blog"
 - [ ] Create a test that the webserver shows the welcome page by default
