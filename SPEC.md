@@ -18,7 +18,7 @@ You may store data such as the text content of the posts in memory, or files in 
 - [x] Create a test that the webserver is able to be accessed
 - [x] Create a welcome page that is the home page of the blog. For now it should just say "Welcome to the blog"
 - [x] Create a test that the webserver shows the welcome page by default
-- [ ] Create a new post page located at /new that contains a form allowing the user to enter a title and body text. When the user submits the form it should persist the post.
+- [x] Create a new post page located at /new that contains a form allowing the user to enter a title and body text. When the user submits the form it should persist the post.
 - [ ] Create a test that verifies this page is reachable and contains the right elements. Assert that when submited the post is persisted
 - [ ] Create a route /:post_title that finds and displays the post with a matching title (substitute "_"s in the url for spaces in the post title)
 - [ ] Create a test that creates a post with the title "test post", navigate to /test_post and assert that the proper post is shown
