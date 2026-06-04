@@ -332,3 +332,85 @@ func TestRecentPostsOnWelcomePage(t *testing.T) {
 	}
 }
 
+func TestToolbarOnAllPages(t *testing.T) {
+	// Clear the global posts slice before test
+	posts = []Post{}
+
+	// Set up the handler like in main
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			welcomeHandler(w, r)
+		} else if r.URL.Path == "/new" {
+			newPostHandler(w, r)
+		} else {
+			postHandler(w, r)
+		}
+	})
+
+	// Create a test post
+	testPost := Post{
+		Title:   "Test Post",
+		Body:    "Test Body",
+		Created: time.Now(),
+	}
+	posts = append(posts, testPost)
+
+	// Test toolbar on home page
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	body := rr.Body.String()
+
+	// Check that the toolbar is present on the home page
+	if !strings.Contains(body, `href="/"`) && !strings.Contains(body, "Home") {
+		t.Errorf("home page should contain Home link in toolbar, got: %s", body)
+	}
+	if !strings.Contains(body, `href="/new"`) && !strings.Contains(body, "Create New Post") {
+		t.Errorf("home page should contain Create New Post link in toolbar, got: %s", body)
+	}
+
+	// Test toolbar on new post page
+	req, err = http.NewRequest("GET", "/new", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	body = rr.Body.String()
+
+	// Check that the toolbar is present on the new post page
+	if !strings.Contains(body, `href="/"`) && !strings.Contains(body, "Home") {
+		t.Errorf("new post page should contain Home link in toolbar, got: %s", body)
+	}
+	if !strings.Contains(body, `href="/new"`) && !strings.Contains(body, "Create New Post") {
+		t.Errorf("new post page should contain Create New Post link in toolbar, got: %s", body)
+	}
+
+	// Test toolbar on individual post page
+	req, err = http.NewRequest("GET", "/Test_Post", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	body = rr.Body.String()
+
+	// Check that the toolbar is present on the post page
+	if !strings.Contains(body, `href="/"`) && !strings.Contains(body, "Home") {
+		t.Errorf("post page should contain Home link in toolbar, got: %s", body)
+	}
+	if !strings.Contains(body, `href="/new"`) && !strings.Contains(body, "Create New Post") {
+		t.Errorf("post page should contain Create New Post link in toolbar, got: %s", body)
+	}
+}
+

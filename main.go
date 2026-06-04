@@ -15,6 +15,13 @@ type Post struct {
 
 var posts []Post
 
+func getToolbar() string {
+	return `<nav style="background-color: #333; padding: 10px; margin-bottom: 20px;">
+		<a href="/" style="color: white; margin-right: 15px; text-decoration: none;">Home</a>
+		<a href="/new" style="color: white; text-decoration: none;">Create New Post</a>
+	</nav>`
+}
+
 func welcomeHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the 10 most recent posts (sorted newest first)
 	recentPosts := posts
@@ -42,22 +49,24 @@ func welcomeHandler(w http.ResponseWriter, r *http.Request) {
 	<title>Blog</title>
 </head>
 <body>
+	%s
 	<h1>Welcome to the blog</h1>
 	%s
 </body>
-</html>`, postLinksHTML)
+</html>`, getToolbar(), postLinksHTML)
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, html)
 }
 
 func newPostHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		html := `<!DOCTYPE html>
+		html := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
 	<title>New Post</title>
 </head>
 <body>
+	%s
 	<h1>Create a New Post</h1>
 	<form method="post">
 		<label>Title:</label>
@@ -69,7 +78,7 @@ func newPostHandler(w http.ResponseWriter, r *http.Request) {
 		<button type="submit">Create Post</button>
 	</form>
 </body>
-</html>`
+</html>`, getToolbar())
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprint(w, html)
 	} else if r.Method == "POST" {
@@ -117,10 +126,11 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	<title>%s</title>
 </head>
 <body>
+	%s
 	<h1>%s</h1>
 	<p>%s</p>
 </body>
-</html>`, foundPost.Title, foundPost.Title, foundPost.Body)
+</html>`, foundPost.Title, getToolbar(), foundPost.Title, foundPost.Body)
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, html)
 }
