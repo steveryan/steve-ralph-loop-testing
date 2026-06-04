@@ -3,15 +3,14 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
 func TestWebserverIsAccessible(t *testing.T) {
 	// Set up the handler like in main
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Welcome to the blog"))
-	})
+	mux.HandleFunc("/", welcomeHandler)
 
 	// Test the basic root path
 	req, err := http.NewRequest("GET", "/", nil)
@@ -28,10 +27,9 @@ func TestWebserverIsAccessible(t *testing.T) {
 			status, http.StatusOK)
 	}
 
-	// Check the response body
-	expected := "Welcome to the blog"
-	if rr.Body.String() != expected {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), expected)
+	// Check the response body contains "Welcome to the blog"
+	if !strings.Contains(rr.Body.String(), "Welcome to the blog") {
+		t.Errorf("handler returned unexpected body: got %v want to contain %v",
+			rr.Body.String(), "Welcome to the blog")
 	}
 }
