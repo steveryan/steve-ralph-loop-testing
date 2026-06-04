@@ -84,8 +84,9 @@ func newPostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		posts = append(posts, post)
 
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprintf(w, "Post created: %s", title)
+		// Redirect to the new post URL
+		postURL := strings.ReplaceAll(title, " ", "_")
+		http.Redirect(w, r, "/"+postURL, http.StatusSeeOther)
 	}
 }
 

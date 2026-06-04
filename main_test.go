@@ -110,7 +110,15 @@ func TestNewPostFormSubmissionPersists(t *testing.T) {
 
 	// Set up the handler like in main
 	mux := http.NewServeMux()
-	mux.HandleFunc("/new", newPostHandler)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			welcomeHandler(w, r)
+		} else if r.URL.Path == "/new" {
+			newPostHandler(w, r)
+		} else {
+			postHandler(w, r)
+		}
+	})
 
 	// Create a POST request to submit a new post
 	formData := strings.NewReader("title=Test+Title&body=Test+Body")
@@ -123,10 +131,9 @@ func TestNewPostFormSubmissionPersists(t *testing.T) {
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, req)
 
-	// Check status code is OK (200)
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+	// Check status code is a redirect (303 See Other or 302 Found)
+	if status := rr.Code; status != http.StatusSeeOther && status != http.StatusFound {
+		t.Errorf("handler should redirect, got %v", status)
 	}
 
 	// Check that the post was persisted
@@ -144,9 +151,10 @@ func TestNewPostFormSubmissionPersists(t *testing.T) {
 		}
 	}
 
-	// Check that the response indicates success
-	if !strings.Contains(rr.Body.String(), "Post created") {
-		t.Errorf("response should contain 'Post created', got: %s", rr.Body.String())
+	// Check that the redirect location is correct
+	location := rr.Header().Get("Location")
+	if location != "/Test_Title" {
+		t.Errorf("redirect location should be '/Test_Title', got '%s'", location)
 	}
 }
 
@@ -196,6 +204,54 @@ func TestNavigateToPostByTitle(t *testing.T) {
 	}
 	if !strings.Contains(body, "This is a test post body") {
 		t.Errorf("response should contain post body, got: %s", body)
+	}
+}
+
+func TestNewPostRedirectsToPost(t *testing.T) {
+	// Clear the global posts slice before test
+	posts = []Post{}
+
+	// Set up the handler like in main
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			welcomeHandler(w, r)
+		} else if r.URL.Path == "/new" {
+			newPostHandler(w, r)
+		} else {
+			postHandler(w, r)
+		}
+	})
+
+	// Create a POST request to submit a new post
+	formData := strings.NewReader("title=Redirect+Test&body=Test+Body")
+	req, err := http.NewRequest("POST", "/new", formData)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	// Check status code is a redirect (302 or 301)
+	if status := rr.Code; status != http.StatusSeeOther && status != http.StatusFound {
+		t.Errorf("handler should redirect (302 or 303), got %v", status)
+	}
+
+	// Check that the location header is set to the post URL
+	location := rr.Header().Get("Location")
+	if location != "/Redirect_Test" {
+		t.Errorf("redirect location should be '/Redirect_Test', got '%s'", location)
+	}
+
+	// Verify the post was persisted
+	if len(posts) != 1 {
+		t.Errorf("expected 1 post to be persisted, got %d", len(posts))
+	} else {
+		if posts[0].Title != "Redirect Test" {
+			t.Errorf("expected post title to be 'Redirect Test', got '%s'", posts[0].Title)
+		}
 	}
 }
 
