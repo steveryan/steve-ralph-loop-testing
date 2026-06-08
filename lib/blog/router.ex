@@ -3,6 +3,8 @@ defmodule Blog.Router do
 
   use Plug.Router
 
+  import Ecto.Query, only: [from: 2]
+
   alias Blog.{Post, Repo}
 
   plug :match
@@ -10,7 +12,7 @@ defmodule Blog.Router do
   plug :dispatch
 
   get "/" do
-    send_resp(conn, 200, "Welcome to the blog")
+    send_resp(conn, 200, home_page())
   end
 
   get "/new" do
@@ -49,6 +51,37 @@ defmodule Blog.Router do
 
   match _ do
     send_resp(conn, 404, "Not found")
+  end
+
+  defp home_page do
+    posts =
+      Repo.all(
+        from p in Post,
+          order_by: [desc: p.inserted_at, desc: p.id],
+          limit: 10
+      )
+
+    links =
+      posts
+      |> Enum.map(fn post ->
+        slug = String.replace(post.title, " ", "_")
+        "<li><a href=\"/#{slug}\">#{post.title}</a></li>"
+      end)
+      |> Enum.join("\n")
+
+    """
+    <!DOCTYPE html>
+    <html>
+      <head><title>Blog</title></head>
+      <body>
+        <h1>Welcome to the blog</h1>
+        <h2>Recent Posts</h2>
+        <ul>
+          #{links}
+        </ul>
+      </body>
+    </html>
+    """
   end
 
   defp show_post(post) do

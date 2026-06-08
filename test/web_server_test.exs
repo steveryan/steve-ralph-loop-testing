@@ -3,6 +3,10 @@ defmodule Blog.WebServerTest do
 
   test "the web server is reachable over HTTP" do
     {:ok, _} = Application.ensure_all_started(:blog)
+
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Blog.Repo)
+    Ecto.Adapters.SQL.Sandbox.mode(Blog.Repo, {:shared, self()})
+
     port = Application.get_env(:blog, :port)
 
     {:ok, socket} =
