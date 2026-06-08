@@ -12,3 +12,43 @@ get '/' do
     </html>
   HTML
 end
+
+get '/new' do
+  <<~HTML
+    <!DOCTYPE html>
+    <html>
+      <head><title>New Post</title></head>
+      <body>
+        <h1>New Post</h1>
+        <form action="/" method="post">
+          <p>
+            <label>Title<br>
+              <input type="text" name="title">
+            </label>
+          </p>
+          <p>
+            <label>Body<br>
+              <textarea name="body"></textarea>
+            </label>
+          </p>
+          <p>
+            <button type="submit">Create Post</button>
+          </p>
+        </form>
+      </body>
+    </html>
+  HTML
+end
+
+post '/' do
+  Post.create(title: params[:title], body: params[:body])
+  <<~HTML
+    <!DOCTYPE html>
+    <html>
+      <head><title>Post Created</title></head>
+      <body>
+        <h1>Post created</h1>
+      </body>
+    </html>
+  HTML
+end
