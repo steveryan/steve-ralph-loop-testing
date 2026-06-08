@@ -1,4 +1,5 @@
 require 'sinatra'
+require_relative 'post'
 
 get '/' do
   <<~HTML
