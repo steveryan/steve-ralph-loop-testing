@@ -18,8 +18,23 @@ GATE="${GATE:-1}"                  # 1 = wait for Enter between iterations
 EFFORT="${EFFORT:-}"               # none|low|medium|high|xhigh|max
 RALPH_TEST_CMD="${RALPH_TEST_CMD:-}"  # e.g. "pytest -q" or "npm test --silent"
 
-if [ ! -f "$SPEC" ]; then
+# Optional issue link, provided as the first positional argument or via the
+# ISSUE_LINK env var. When set, the task checklist is read from (and checked
+# off on) the GitHub issue instead of SPEC.md.
+ISSUE_LINK="${1:-${ISSUE_LINK:-}}"
+
+if [ -n "$ISSUE_LINK" ]; then
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "ralph: ISSUE_LINK given but 'gh' CLI not found. Install it to read issues." >&2
+    exit 1
+  fi
+  if ! gh issue view "$ISSUE_LINK" --json body -q .body >/dev/null 2>&1; then
+    echo "ralph: cannot read issue '$ISSUE_LINK' via gh. Check the link and 'gh auth status'." >&2
+    exit 1
+  fi
+elif [ ! -f "$SPEC" ]; then
   echo "ralph: no $SPEC found. Create one with a checklist of '- [ ]' tasks." >&2
+  echo "ralph: (or pass an ISSUE_LINK to read tasks from a GitHub issue)." >&2
   exit 1
 fi
 
@@ -81,13 +96,85 @@ Hard rules:
   commit). The loop treats an unchanged HEAD as a hard failure.
 PROMPT
 
+# When an issue link is supplied, swap in a prompt that reads the task list
+# from the GitHub issue and checks items off there instead of in SPEC.md.
+if [ -n "$ISSUE_LINK" ]; then
+  read -r -d '' PROMPT <<'PROMPT' || true
+You are running inside a Ralph loop. Each invocation starts with a fresh
+context, so you cannot rely on memory of previous turns -- only on the
+repository state and the referenced GitHub issue's task list.
+
+The task checklist lives in a GitHub issue, not in SPEC.md. Read it with:
+  gh issue view __ISSUE_LINK__
+
+Do exactly this, once:
+
+1. Read the issue body with `gh issue view __ISSUE_LINK__`.
+2. Pick the FIRST task whose line begins with "- [ ]".
+3. Implement ONLY that task. Keep the change focused; do not refactor
+   unrelated code.
+4. Run the project's tests, linters, and build steps that apply to your
+   change. Treat ANY failure as "not done" -- do not paper over it by
+   weakening tests or skipping checks.
+
+5. SUCCESS PATH (every relevant check passes):
+   a. Update the issue's task list to change the leading "- [ ]" on that
+      single line to "- [x]". Fetch the current body, edit ONLY that one
+      line, and write it back:
+        gh issue view __ISSUE_LINK__ --json body -q .body > /tmp/ralph-issue.md
+        # edit the single line in /tmp/ralph-issue.md
+        gh issue edit __ISSUE_LINK__ --body-file /tmp/ralph-issue.md
+      Do not modify any other task lines.
+   b. Stage and commit your code changes on the current branch with a concise
+      message starting with "ralph: " that names the task you completed.
+
+6. BLOCKED PATH (a check fails and you cannot fix it within this turn,
+   or the task is ambiguous):
+   a. Do NOT commit broken or unverified code to the current branch.
+   b. Stash any working changes so they are not lost:
+      `git stash push -u -m "ralph-blocked: <task slug>"`.
+   c. Update the issue's task list to append ` <!-- blocked: <one-line
+      reason> -->` to the task line, leaving its "[ ]" intact, using the
+      same gh issue edit flow as above.
+   d. Record the block in git with an empty marker commit:
+      `git commit --allow-empty -m "ralph: blocked <one-line reason>"`.
+   e. Stop. The loop will detect the blocked marker and exit.
+
+Hard rules:
+- Never commit failing code to the current branch.
+- Do not edit ralph.sh.
+- Do not modify task lines other than the one you are working on.
+- Do not add new tasks to the issue unless it explicitly tells you to.
+- You MUST advance HEAD this turn (either a success commit or a blocked
+  commit). The loop treats an unchanged HEAD as a hard failure.
+PROMPT
+  PROMPT="${PROMPT//__ISSUE_LINK__/$ISSUE_LINK}"
+fi
+
+# Emit the current task checklist: from the GitHub issue when ISSUE_LINK is
+# set, otherwise from SPEC.md.
+task_source() {
+  if [ -n "$ISSUE_LINK" ]; then
+    gh issue view "$ISSUE_LINK" --json body -q .body 2>/dev/null
+  else
+    cat "$SPEC" 2>/dev/null
+  fi
+}
+
 pending_count() {
   # Pending = lines starting with "- [ ]" that are NOT marked blocked.
   local n
-  n=$(grep -E '^[[:space:]]*-[[:space:]]*\[ \]' "$SPEC" 2>/dev/null \
+  n=$(task_source | grep -E '^[[:space:]]*-[[:space:]]*\[ \]' \
         | grep -vc '<!-- blocked' || true)
   echo "${n:-0}"
 }
+
+# Human-readable label for where tasks come from, used in status messages.
+if [ -n "$ISSUE_LINK" ]; then
+  TASK_SRC_LABEL="issue $ISSUE_LINK"
+else
+  TASK_SRC_LABEL="$SPEC"
+fi
 
 iter=0
 while [ "$(pending_count)" -gt 0 ]; do
@@ -153,7 +240,7 @@ while [ "$(pending_count)" -gt 0 ]; do
   fi
 
   remaining="$(pending_count)"
-  echo "ralph: $remaining pending task(s) in $SPEC (blocked tasks are not counted)"
+  echo "ralph: $remaining pending task(s) in $TASK_SRC_LABEL (blocked tasks are not counted)"
 
   if [ "$GATE" = "1" ] && [ "$remaining" -gt 0 ]; then
     if ! read -r -p "ralph: continue? [Enter=yes, Ctrl+C=stop] " _; then
@@ -164,7 +251,7 @@ while [ "$(pending_count)" -gt 0 ]; do
 done
 
 echo
-echo "ralph: done. No pending (unblocked) '- [ ]' items remain in $SPEC."
+echo "ralph: done. No pending (unblocked) '- [ ]' items remain in $TASK_SRC_LABEL."
 
 # If all tasks are complete and we're on a feature branch, push and open a PR.
 if [ "$(pending_count)" -eq 0 ]; then
