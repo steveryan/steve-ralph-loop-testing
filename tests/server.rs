@@ -111,6 +111,56 @@ async fn new_post_form_submission_persists_post() {
 }
 
 #[tokio::test]
+async fn create_post_redirects_to_post_url() {
+    let db_path = temp_db_path("redirect_post");
+    let path_str = db_path.to_str().unwrap().to_string();
+
+    let conn = db::open(&path_str).expect("failed to open db");
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    tokio::spawn(async move {
+        axum::serve(listener, blog::app_with_conn(conn)).await.unwrap();
+    });
+
+    let url = format!("http://{}/new", addr);
+    let mut form = HashMap::new();
+    form.insert("title", "Redirect Me");
+    form.insert("body", "Redirect Body");
+
+    // Do not follow redirects so we can inspect the Location header.
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(&url)
+        .form(&form)
+        .send()
+        .await
+        .expect("post request failed");
+
+    assert!(resp.status().is_redirection(), "expected a redirect response");
+    let location = resp
+        .headers()
+        .get("location")
+        .expect("redirect should include Location header")
+        .to_str()
+        .unwrap();
+    assert_eq!(location, "/Redirect_Me");
+
+    // Following the redirect should display the newly created post.
+    let follow_url = format!("http://{}{}", addr, location);
+    let follow = reqwest::get(&follow_url).await.expect("follow request failed");
+    assert!(follow.status().is_success());
+    let body = follow.text().await.expect("failed to read body");
+    assert!(body.contains("Redirect Me"));
+    assert!(body.contains("Redirect Body"));
+
+    let _ = std::fs::remove_file(&db_path);
+}
+
+#[tokio::test]
 async fn show_post_displays_matching_post() {
     let db_path = temp_db_path("show_post");
     let path_str = db_path.to_str().unwrap().to_string();

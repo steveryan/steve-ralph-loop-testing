@@ -131,5 +131,6 @@ async fn create_post_handler(
         let conn = state.conn.lock().expect("db lock poisoned");
         db::create_post(&conn, &input.title, &input.body).expect("failed to persist post");
     }
-    Redirect::to("/")
+    let url = format!("/{}", input.title.replace(' ', "_"));
+    Redirect::to(&url)
 }
