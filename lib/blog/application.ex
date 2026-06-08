@@ -4,6 +4,7 @@ defmodule Blog.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      Blog.Repo,
       {Bandit, plug: Blog.Router, scheme: :http, port: port()}
     ]
 
