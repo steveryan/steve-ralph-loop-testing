@@ -45,16 +45,9 @@ get '/new' do
 end
 
 post '/' do
-  Post.create(title: params[:title], body: params[:body])
-  <<~HTML
-    <!DOCTYPE html>
-    <html>
-      <head><title>Post Created</title></head>
-      <body>
-        <h1>Post created</h1>
-      </body>
-    </html>
-  HTML
+  post = Post.create(title: params[:title], body: params[:body])
+  slug = post['title'].tr(' ', '_')
+  redirect "/#{slug}"
 end
 
 get '/:post_title' do
