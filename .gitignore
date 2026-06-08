@@ -1,0 +1,8 @@
+# Dependencies
+/deps/
+/_build/
+/.elixir_ls/
+erl_crash.dump
+*.ez
+blog-*.tar
+/.fetch
