@@ -13,9 +13,9 @@ set -euo pipefail
 SPEC="${SPEC:-SPEC.md}"
 LOG_DIR="${LOG_DIR:-logs}"
 MODEL="${MODEL:-}"
-MAX_ITERS="${MAX_ITERS:-0}"        # 0 = unlimited
-GATE="${GATE:-1}"                  # 1 = wait for Enter between iterations
-EFFORT="${EFFORT:-}"               # none|low|medium|high|xhigh|max
+MAX_ITERS="${MAX_ITERS:-50}"       # 0 = unlimited
+GATE="${GATE:-0}"                  # 1 = wait for Enter between iterations
+EFFORT="${EFFORT:-max}"            # none|low|medium|high|xhigh|max
 RALPH_TEST_CMD="${RALPH_TEST_CMD:-}"  # e.g. "pytest -q" or "npm test --silent"
 
 # Optional issue link, provided as the first positional argument or via the
