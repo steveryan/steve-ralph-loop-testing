@@ -29,8 +29,12 @@ defmodule Blog.Router do
     }
 
     case %Post{} |> Post.changeset(attrs) |> Repo.insert() do
-      {:ok, _post} ->
-        send_resp(conn, 201, "Post created")
+      {:ok, post} ->
+        url = "/" <> String.replace(post.title, " ", "_")
+
+        conn
+        |> put_resp_header("location", url)
+        |> send_resp(302, "")
 
       {:error, _changeset} ->
         send_resp(conn, 422, new_post_form())
