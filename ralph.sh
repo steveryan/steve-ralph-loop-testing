@@ -16,6 +16,7 @@ MODEL="${MODEL:-}"
 MAX_ITERS="${MAX_ITERS:-50}"       # 0 = unlimited
 GATE="${GATE:-0}"                  # 1 = wait for Enter between iterations
 EFFORT="${EFFORT:-max}"            # none|low|medium|high|xhigh|max
+PLAN="${PLAN:-1}"                  # 1 = run an interactive planning pass first
 RALPH_TEST_CMD="${RALPH_TEST_CMD:-}"  # e.g. "pytest -q" or "npm test --silent"
 
 # Optional issue link, provided as the first positional argument or via the
@@ -174,6 +175,114 @@ if [ -n "$ISSUE_LINK" ]; then
   TASK_SRC_LABEL="issue $ISSUE_LINK"
 else
   TASK_SRC_LABEL="$SPEC"
+fi
+
+# ----------------------------------------------------------------------------
+# Planning pass (interactive). Before the loop starts, let Copilot read the
+# task source, ask the user any clarifying questions, and ensure a clean,
+# ordered, step-by-step checklist exists so the loop can complete exactly one
+# item per iteration. Runs once; set PLAN=0 to skip (e.g. for re-runs).
+# ----------------------------------------------------------------------------
+read -r -d '' PLAN_PROMPT <<'PROMPT' || true
+You are the PLANNING step of a Ralph loop. You are NOT implementing anything
+this turn. Your job is to make sure SPEC.md contains a clear, ordered,
+step-by-step checklist that a fresh agent (with no memory of this session) can
+execute ONE item per iteration.
+
+Do this:
+
+1. Read SPEC.md and skim the repository (README, build/manifest files, source,
+   and tests) to understand the project and what is being asked.
+2. If anything about the desired outcome is ambiguous or underspecified, USE
+   THE ask_user TOOL to ask the user concise clarifying questions BEFORE
+   writing tasks. Incorporate their answers.
+3. Ensure SPEC.md contains a checklist of "- [ ]" tasks where:
+   - Each task is a single, self-contained step completable in one iteration.
+   - Tasks are ordered so earlier ones unblock later ones.
+   - Together they FULLY cover the requested work (setup, implementation,
+     tests, and any docs/config the work needs).
+   - Each task line carries enough detail (files, expected behavior,
+     acceptance criteria) for a fresh agent to act on it.
+   - If tasks already exist, refine and extend them instead of duplicating:
+     fill gaps and add missing context. If none exist, write them.
+4. Save SPEC.md.
+
+Hard rules:
+- Do NOT implement any task or change code other than SPEC.md this turn.
+- Do NOT mark any task "- [x]".
+- Do NOT edit ralph.sh.
+- Keep each task small enough that exactly one fits in a single iteration.
+PROMPT
+
+if [ -n "$ISSUE_LINK" ]; then
+  read -r -d '' PLAN_PROMPT <<'PROMPT' || true
+You are the PLANNING step of a Ralph loop. You are NOT implementing anything
+this turn. Your job is to make sure the GitHub issue contains a clear,
+ordered, step-by-step task list that a fresh agent (with no memory of this
+session) can execute ONE item per iteration.
+
+The task list lives in this GitHub issue:
+  gh issue view __ISSUE_LINK__
+
+Do this:
+
+1. Read the issue with `gh issue view __ISSUE_LINK__` and skim the repository
+   (README, build/manifest files, source, and tests) to understand the
+   project and what the issue is asking for.
+2. If anything about the desired outcome is ambiguous or underspecified, USE
+   THE ask_user TOOL to ask the user concise clarifying questions BEFORE
+   writing tasks. Incorporate their answers.
+3. Ensure the issue body contains a checklist of "- [ ]" tasks where:
+   - Each task is a single, self-contained step completable in one iteration.
+   - Tasks are ordered so earlier ones unblock later ones.
+   - Together they FULLY cover everything the issue asks for (setup,
+     implementation, tests, and any docs/config the work needs).
+   - Each task line carries enough detail (files, expected behavior,
+     acceptance criteria) for a fresh agent to act on it.
+   - If tasks already exist, refine and extend them instead of duplicating:
+     fill gaps and add missing context. If none exist, write them.
+4. Write the finalized checklist (plus any supporting context) back to the
+   issue body:
+     gh issue view __ISSUE_LINK__ --json body -q .body > /tmp/ralph-plan.md
+     # edit /tmp/ralph-plan.md so it contains the full task list + context
+     gh issue edit __ISSUE_LINK__ --body-file /tmp/ralph-plan.md
+
+Hard rules:
+- Do NOT implement any task or write code this turn.
+- Do NOT mark any task "- [x]".
+- Do NOT edit ralph.sh.
+- Keep each task small enough that exactly one fits in a single iteration.
+PROMPT
+  PLAN_PROMPT="${PLAN_PROMPT//__ISSUE_LINK__/$ISSUE_LINK}"
+fi
+
+if [ "$PLAN" = "1" ]; then
+  printf '\n=== ralph planning (%s) ===\n' "$TASK_SRC_LABEL"
+  echo "ralph: Copilot will review the tasks and may ask you clarifying"
+  echo "ralph: questions. Answer them, then exit the session (/exit) to start"
+  echo "ralph: the loop. Set PLAN=0 to skip this step on future runs."
+
+  plan_args=(-i "$PLAN_PROMPT" --allow-all-tools)
+  [ -n "$MODEL" ]  && plan_args+=(--model "$MODEL")
+  [ -n "$EFFORT" ] && plan_args+=(--effort "$EFFORT")
+
+  if ! copilot "${plan_args[@]}"; then
+    echo "ralph: planning step exited non-zero. Stopping." >&2
+    exit 1
+  fi
+
+  # In SPEC.md mode the planning step edits a tracked file; commit it so the
+  # loop's clean-tree invariant holds. (Issue mode edits the remote issue, so
+  # there is nothing local to commit.)
+  if [ -z "$ISSUE_LINK" ] && [ -n "$(git status --porcelain)" ]; then
+    git add -A
+    git commit -m "ralph: plan tasks in $SPEC"
+  fi
+
+  if [ "$(pending_count)" -eq 0 ]; then
+    echo "ralph: planning produced no pending tasks in $TASK_SRC_LABEL. Nothing to do." >&2
+    exit 0
+  fi
 fi
 
 iter=0
