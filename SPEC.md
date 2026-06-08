@@ -14,7 +14,7 @@ This does not need to have authentication or logins.
 ## Tasks
 
 - [x] Create the basic elixir app that runs a local webserver
-- [ ] Create a test that the webserver is able to be accessed
+- [x] Create a test that the webserver is able to be accessed
 - [ ] Create a welcome page that is the home page of the blog. For now it should just say "Welcome to the blog"
 - [ ] Create a test that the webserver shows the welcome page by default
 - [ ] Create a SQLite db to store the posts in. The posts will contain a string title and a string body. Write a test for this.
