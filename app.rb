@@ -52,3 +52,34 @@ post '/' do
     </html>
   HTML
 end
+
+get '/:post_title' do
+  title = params[:post_title].tr('_', ' ')
+  post = Post.find_by_title(title)
+  halt 404, not_found_html unless post
+
+  safe_title = Rack::Utils.escape_html(post['title'])
+  safe_body = Rack::Utils.escape_html(post['body'])
+  <<~HTML
+    <!DOCTYPE html>
+    <html>
+      <head><title>#{safe_title}</title></head>
+      <body>
+        <h1>#{safe_title}</h1>
+        <div>#{safe_body}</div>
+      </body>
+    </html>
+  HTML
+end
+
+def not_found_html
+  <<~HTML
+    <!DOCTYPE html>
+    <html>
+      <head><title>Not Found</title></head>
+      <body>
+        <h1>Post not found</h1>
+      </body>
+    </html>
+  HTML
+end
