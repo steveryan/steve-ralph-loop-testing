@@ -7,7 +7,7 @@ defmodule Blog.Router do
   plug :dispatch
 
   get "/" do
-    send_resp(conn, 200, "Blog server is running")
+    send_resp(conn, 200, "Welcome to the blog")
   end
 
   match _ do
