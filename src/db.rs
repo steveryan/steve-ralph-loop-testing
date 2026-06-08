@@ -54,6 +54,23 @@ pub fn get_post_by_title(conn: &Connection, title: &str) -> Result<Option<Post>>
     }
 }
 
+pub fn get_recent_posts(conn: &Connection, limit: i64) -> Result<Vec<Post>> {
+    let mut stmt =
+        conn.prepare("SELECT id, title, body FROM posts ORDER BY id DESC LIMIT ?1")?;
+    let rows = stmt.query_map([limit], |row| {
+        Ok(Post {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            body: row.get(2)?,
+        })
+    })?;
+    let mut posts = Vec::new();
+    for post in rows {
+        posts.push(post?);
+    }
+    Ok(posts)
+}
+
 pub fn get_post(conn: &Connection, id: i64) -> Result<Option<Post>> {
     let mut stmt = conn.prepare("SELECT id, title, body FROM posts WHERE id = ?1")?;
     let mut rows = stmt.query_map([id], |row| {

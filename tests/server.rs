@@ -135,3 +135,54 @@ async fn show_post_displays_matching_post() {
 
     let _ = std::fs::remove_file(&db_path);
 }
+
+#[tokio::test]
+async fn home_page_lists_ten_most_recent_posts() {
+    let db_path = temp_db_path("recent_posts");
+    let path_str = db_path.to_str().unwrap().to_string();
+
+    let conn = db::open(&path_str).expect("failed to open db");
+    for i in 1..=12 {
+        db::create_post(&conn, &format!("Post {}", i), &format!("Body {}", i))
+            .expect("failed to create post");
+    }
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    tokio::spawn(async move {
+        axum::serve(listener, blog::app_with_conn(conn)).await.unwrap();
+    });
+
+    let url = format!("http://{}/", addr);
+    let resp = reqwest::get(&url).await.expect("request failed");
+    assert!(resp.status().is_success());
+    let body = resp.text().await.expect("failed to read body");
+
+    assert!(body.contains("Recent Posts"));
+
+    // Ten most recent posts (12 down to 3) should be present.
+    for i in 3..=12 {
+        assert!(
+            body.contains(&format!("Post {}", i)),
+            "expected Post {} to be listed",
+            i
+        );
+    }
+    // The two oldest (1 and 2) should not appear.
+    assert!(!body.contains(">Post 1<"), "Post 1 should not be listed");
+    assert!(!body.contains(">Post 2<"), "Post 2 should not be listed");
+
+    // Most recent should appear before the least recent of the ten.
+    let pos_newest = body.find("Post 12").expect("Post 12 missing");
+    let pos_oldest_shown = body.find("Post 3").expect("Post 3 missing");
+    assert!(
+        pos_newest < pos_oldest_shown,
+        "posts should be ordered most recent first"
+    );
+
+    // Links should point to the post url with underscores for spaces.
+    assert!(body.contains("/Post_12"), "expected link to /Post_12");
+
+    let _ = std::fs::remove_file(&db_path);
+}

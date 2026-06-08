@@ -33,8 +33,37 @@ pub fn app_with_conn(conn: Connection) -> Router {
         .with_state(state)
 }
 
-async fn root() -> &'static str {
-    "Welcome to the blog"
+async fn root(State(state): State<AppState>) -> impl IntoResponse {
+    let posts = {
+        let conn = state.conn.lock().expect("db lock poisoned");
+        db::get_recent_posts(&conn, 10).expect("failed to query recent posts")
+    };
+    let links = posts
+        .iter()
+        .map(|post| {
+            let url = format!("/{}", post.title.replace(' ', "_"));
+            format!(
+                "<li><a href=\"{url}\">{title}</a></li>",
+                url = escape_html(&url),
+                title = escape_html(&post.title),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    Html(format!(
+        r#"<!DOCTYPE html>
+<html>
+<head><title>Welcome to the blog</title></head>
+<body>
+<h1>Welcome to the blog</h1>
+<h2>Recent Posts</h2>
+<ul>
+{links}
+</ul>
+</body>
+</html>"#,
+        links = links,
+    ))
 }
 
 async fn new_post_form() -> Html<&'static str> {
