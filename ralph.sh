@@ -264,7 +264,13 @@ if [ "$(pending_count)" -eq 0 ]; then
     else
       echo "ralph: pushing branch '$branch' and opening PR..."
       git push -u origin "$branch"
-      gh pr create --fill
+      # If the task source was an issue, link the PR to it so merging closes
+      # the issue; otherwise let gh fill the PR from the commits.
+      if [ -n "$ISSUE_LINK" ]; then
+        gh pr create --fill --body "closes: $ISSUE_LINK"
+      else
+        gh pr create --fill
+      fi
       echo "ralph: PR opened."
     fi
   fi
