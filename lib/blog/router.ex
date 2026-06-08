@@ -35,8 +35,33 @@ defmodule Blog.Router do
     end
   end
 
+  get "/:post_title" do
+    title = String.replace(post_title, "_", " ")
+
+    case Repo.get_by(Post, title: title) do
+      nil ->
+        send_resp(conn, 404, "Not found")
+
+      post ->
+        send_resp(conn, 200, show_post(post))
+    end
+  end
+
   match _ do
     send_resp(conn, 404, "Not found")
+  end
+
+  defp show_post(post) do
+    """
+    <!DOCTYPE html>
+    <html>
+      <head><title>#{post.title}</title></head>
+      <body>
+        <h1>#{post.title}</h1>
+        <p>#{post.body}</p>
+      </body>
+    </html>
+    """
   end
 
   defp new_post_form do
