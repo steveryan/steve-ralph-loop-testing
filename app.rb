@@ -8,6 +8,10 @@ get '/' do
       <head><title>Blog</title></head>
       <body>
         <h1>Welcome to the blog</h1>
+        <h2>Recent Posts</h2>
+        <ul>
+    #{recent_posts_list_html}
+        </ul>
       </body>
     </html>
   HTML
@@ -70,6 +74,14 @@ get '/:post_title' do
       </body>
     </html>
   HTML
+end
+
+def recent_posts_list_html
+  Post.all.first(10).map do |post|
+    title = post['title']
+    slug = title.tr(' ', '_')
+    %(      <li><a href="/#{Rack::Utils.escape_html(slug)}">#{Rack::Utils.escape_html(title)}</a></li>)
+  end.join("\n")
 end
 
 def not_found_html
