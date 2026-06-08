@@ -3,6 +3,8 @@ defmodule Blog.Router do
 
   alias Blog.{Post, Repo}
 
+  import Ecto.Query
+
   plug(:match)
 
   plug(Plug.Parsers,
@@ -13,7 +15,7 @@ defmodule Blog.Router do
   plug(:dispatch)
 
   get "/" do
-    send_resp(conn, 200, "Welcome to the blog")
+    send_resp(conn, 200, home_page())
   end
 
   get "/new" do
@@ -49,6 +51,38 @@ defmodule Blog.Router do
 
   match _ do
     send_resp(conn, 404, "Not found")
+  end
+
+  defp home_page do
+    posts = recent_posts()
+
+    links =
+      posts
+      |> Enum.map(fn %Post{title: title} ->
+        url = "/" <> String.replace(title, " ", "_")
+        "<li><a href=\"#{url}\">#{title}</a></li>"
+      end)
+      |> Enum.join("\n")
+
+    """
+    <!DOCTYPE html>
+    <html>
+      <head><title>Welcome to the blog</title></head>
+      <body>
+        <h1>Welcome to the blog</h1>
+        <h2>Recent Posts</h2>
+        <ul>
+          #{links}
+        </ul>
+      </body>
+    </html>
+    """
+  end
+
+  defp recent_posts do
+    Repo.all(from(p in Post, order_by: [desc: p.inserted_at, desc: p.id], limit: 10))
+  rescue
+    DBConnection.OwnershipError -> []
   end
 
   defp show_post(%Post{title: title, body: body}) do
