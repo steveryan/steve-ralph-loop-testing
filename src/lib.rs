@@ -5,5 +5,5 @@ pub fn app() -> Router {
 }
 
 async fn root() -> &'static str {
-    "Blog is running"
+    "Welcome to the blog"
 }
