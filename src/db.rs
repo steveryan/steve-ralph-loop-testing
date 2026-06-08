@@ -39,6 +39,21 @@ pub fn create_post(conn: &Connection, title: &str, body: &str) -> Result<i64> {
     Ok(conn.last_insert_rowid())
 }
 
+pub fn get_post_by_title(conn: &Connection, title: &str) -> Result<Option<Post>> {
+    let mut stmt = conn.prepare("SELECT id, title, body FROM posts WHERE title = ?1")?;
+    let mut rows = stmt.query_map([title], |row| {
+        Ok(Post {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            body: row.get(2)?,
+        })
+    })?;
+    match rows.next() {
+        Some(post) => Ok(Some(post?)),
+        None => Ok(None),
+    }
+}
+
 pub fn get_post(conn: &Connection, id: i64) -> Result<Option<Post>> {
     let mut stmt = conn.prepare("SELECT id, title, body FROM posts WHERE id = ?1")?;
     let mut rows = stmt.query_map([id], |row| {

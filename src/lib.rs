@@ -1,7 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use axum::{
-    extract::State,
+    extract::{Path, State},
+    http::StatusCode,
     response::{Html, IntoResponse, Redirect},
     routing::get,
     Form, Router,
@@ -28,6 +29,7 @@ pub fn app_with_conn(conn: Connection) -> Router {
     Router::new()
         .route("/", get(root))
         .route("/new", get(new_post_form).post(create_post_handler))
+        .route("/:post_title", get(show_post_handler))
         .with_state(state)
 }
 
@@ -50,6 +52,40 @@ async fn new_post_form() -> Html<&'static str> {
 </body>
 </html>"#,
     )
+}
+
+fn escape_html(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+async fn show_post_handler(
+    State(state): State<AppState>,
+    Path(post_title): Path<String>,
+) -> impl IntoResponse {
+    let title = post_title.replace('_', " ");
+    let post = {
+        let conn = state.conn.lock().expect("db lock poisoned");
+        db::get_post_by_title(&conn, &title).expect("failed to query post")
+    };
+    match post {
+        Some(post) => Html(format!(
+            r#"<!DOCTYPE html>
+<html>
+<head><title>{title}</title></head>
+<body>
+<h1>{title}</h1>
+<div>{body}</div>
+</body>
+</html>"#,
+            title = escape_html(&post.title),
+            body = escape_html(&post.body),
+        ))
+        .into_response(),
+        None => (StatusCode::NOT_FOUND, "Post not found").into_response(),
+    }
 }
 
 #[derive(Deserialize)]
