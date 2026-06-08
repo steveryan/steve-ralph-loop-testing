@@ -55,6 +55,7 @@ async fn root(State(state): State<AppState>) -> impl IntoResponse {
 <html>
 <head><title>Welcome to the blog</title></head>
 <body>
+{toolbar}
 <h1>Welcome to the blog</h1>
 <h2>Recent Posts</h2>
 <ul>
@@ -62,16 +63,25 @@ async fn root(State(state): State<AppState>) -> impl IntoResponse {
 </ul>
 </body>
 </html>"#,
+        toolbar = toolbar(),
         links = links,
     ))
 }
 
-async fn new_post_form() -> Html<&'static str> {
-    Html(
+fn toolbar() -> &'static str {
+    r#"<nav class="toolbar">
+  <a href="/">Home</a>
+  <a href="/new">New Post</a>
+</nav>"#
+}
+
+async fn new_post_form() -> Html<String> {
+    Html(format!(
         r#"<!DOCTYPE html>
 <html>
 <head><title>New Post</title></head>
 <body>
+{toolbar}
 <h1>New Post</h1>
 <form method="post" action="/new">
   <label>Title: <input type="text" name="title" /></label><br />
@@ -80,7 +90,8 @@ async fn new_post_form() -> Html<&'static str> {
 </form>
 </body>
 </html>"#,
-    )
+        toolbar = toolbar(),
+    ))
 }
 
 fn escape_html(input: &str) -> String {
@@ -105,10 +116,12 @@ async fn show_post_handler(
 <html>
 <head><title>{title}</title></head>
 <body>
+{toolbar}
 <h1>{title}</h1>
 <div>{body}</div>
 </body>
 </html>"#,
+            toolbar = toolbar(),
             title = escape_html(&post.title),
             body = escape_html(&post.body),
         ))

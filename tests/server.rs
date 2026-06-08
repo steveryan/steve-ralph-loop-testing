@@ -32,6 +32,42 @@ async fn home_page_shows_welcome() {
     assert!(body.contains("Welcome to the blog"));
 }
 
+#[tokio::test]
+async fn toolbar_appears_on_every_page() {
+    let db_path = temp_db_path("toolbar");
+    let path_str = db_path.to_str().unwrap().to_string();
+
+    let conn = db::open(&path_str).expect("failed to open db");
+    db::create_post(&conn, "toolbar post", "Toolbar body").expect("failed to create post");
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    tokio::spawn(async move {
+        axum::serve(listener, blog::app_with_conn(conn)).await.unwrap();
+    });
+
+    for path in ["/", "/new", "/toolbar_post"] {
+        let url = format!("http://{}{}", addr, path);
+        let resp = reqwest::get(&url).await.expect("request failed");
+        assert!(resp.status().is_success(), "{} should be reachable", path);
+        let body = resp.text().await.expect("failed to read body");
+
+        assert!(
+            body.contains(r#"<a href="/new">New Post</a>"#),
+            "toolbar New Post button missing on {}",
+            path
+        );
+        assert!(
+            body.contains(r#"<a href="/">Home</a>"#),
+            "toolbar Home button missing on {}",
+            path
+        );
+    }
+
+    let _ = std::fs::remove_file(&db_path);
+}
+
 fn temp_db_path(slug: &str) -> std::path::PathBuf {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

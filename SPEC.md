@@ -23,4 +23,4 @@ The data should be stored using a local sqlite
 - [x] Create a test that creates a post with the title "test post", navigate to /test_post and assert that the proper post is shown
 - [x] Update the home page so it contains a list of links to the ten most recently written posts in the order of most recent to least recent. This should be under a subheading of "Recent Posts". Write a test to confirm this behavior
 - [x] When a post is persisted after creation, redirect to that post's url. Write a test to confirm this behavior
-- [ ] Add toolbar with a button on the homepage to create a new post. It should link to the new post page. Also add a Home button that takes you to the homepage. The toolbar should appear on every page. add a test for this toolbar.
+- [x] Add toolbar with a button on the homepage to create a new post. It should link to the new post page. Also add a Home button that takes you to the homepage. The toolbar should appear on every page. add a test for this toolbar.
