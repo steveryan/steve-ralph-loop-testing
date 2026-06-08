@@ -109,3 +109,29 @@ async fn new_post_form_submission_persists_post() {
     drop(verify_conn);
     let _ = std::fs::remove_file(&db_path);
 }
+
+#[tokio::test]
+async fn show_post_displays_matching_post() {
+    let db_path = temp_db_path("show_post");
+    let path_str = db_path.to_str().unwrap().to_string();
+
+    let conn = db::open(&path_str).expect("failed to open db");
+    db::create_post(&conn, "test post", "This is the test post body")
+        .expect("failed to create post");
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    tokio::spawn(async move {
+        axum::serve(listener, blog::app_with_conn(conn)).await.unwrap();
+    });
+
+    let url = format!("http://{}/test_post", addr);
+    let resp = reqwest::get(&url).await.expect("request failed");
+    assert!(resp.status().is_success());
+    let body = resp.text().await.expect("failed to read body");
+    assert!(body.contains("test post"));
+    assert!(body.contains("This is the test post body"));
+
+    let _ = std::fs::remove_file(&db_path);
+}
