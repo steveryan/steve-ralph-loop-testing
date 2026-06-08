@@ -1,1 +1,5 @@
 import Config
+
+config :blog, Blog.Repo,
+  database: Path.expand("../priv/blog_dev.db", __DIR__),
+  pool_size: 5

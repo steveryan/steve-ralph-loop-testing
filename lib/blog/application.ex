@@ -8,6 +8,7 @@ defmodule Blog.Application do
     port = Application.get_env(:blog, :port, 4000)
 
     children = [
+      Blog.Repo,
       {Bandit, plug: Blog.Router, scheme: :http, port: port}
     ]
 

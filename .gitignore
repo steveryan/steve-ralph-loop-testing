@@ -6,3 +6,7 @@ erl_crash.dump
 *.ez
 blog-*.tar
 /.fetch
+
+# SQLite databases
+/priv/*.db
+/priv/*.db-*
