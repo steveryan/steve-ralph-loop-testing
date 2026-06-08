@@ -272,3 +272,45 @@ async fn home_page_lists_ten_most_recent_posts() {
 
     let _ = std::fs::remove_file(&db_path);
 }
+
+#[tokio::test]
+async fn pages_include_stylesheet_and_css_is_served() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    tokio::spawn(async move {
+        axum::serve(listener, blog::app()).await.unwrap();
+    });
+
+    // Every page should link the stylesheet.
+    for path in ["/", "/new"] {
+        let url = format!("http://{}{}", addr, path);
+        let resp = reqwest::get(&url).await.expect("request failed");
+        assert!(resp.status().is_success(), "{} should be reachable", path);
+        let body = resp.text().await.expect("failed to read body");
+        assert!(
+            body.contains(r#"<link rel="stylesheet" href="/style.css" />"#),
+            "stylesheet link missing on {}",
+            path
+        );
+    }
+
+    // The stylesheet itself should be served as CSS.
+    let css_url = format!("http://{}/style.css", addr);
+    let resp = reqwest::get(&css_url).await.expect("request failed");
+    assert!(resp.status().is_success());
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .expect("missing content-type")
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        content_type.contains("text/css"),
+        "expected text/css, got {}",
+        content_type
+    );
+    let css = resp.text().await.expect("failed to read css");
+    assert!(css.contains(".toolbar"), "css should style the toolbar");
+}

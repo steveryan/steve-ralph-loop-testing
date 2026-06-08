@@ -29,8 +29,76 @@ pub fn app_with_conn(conn: Connection) -> Router {
     Router::new()
         .route("/", get(root))
         .route("/new", get(new_post_form).post(create_post_handler))
+        .route("/style.css", get(stylesheet))
         .route("/:post_title", get(show_post_handler))
         .with_state(state)
+}
+
+const STYLE_CSS: &str = r#":root {
+  --accent: #2563eb;
+  --bg: #f7f7f9;
+  --fg: #1f2933;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+  margin: 0;
+  padding: 0 0 3rem;
+}
+.toolbar {
+  background: var(--accent);
+  padding: 0.75rem 1.5rem;
+  margin-bottom: 2rem;
+}
+.toolbar a {
+  color: #fff;
+  text-decoration: none;
+  margin-right: 1.25rem;
+  font-weight: 600;
+}
+.toolbar a:hover { text-decoration: underline; }
+h1, h2, form, ul, div {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+a { color: var(--accent); }
+form input[type="text"],
+form textarea {
+  width: 100%;
+  padding: 0.5rem;
+  margin: 0.25rem 0 1rem;
+  border: 1px solid #cbd2d9;
+  border-radius: 4px;
+  font: inherit;
+}
+form textarea { min-height: 8rem; }
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { opacity: 0.9; }
+"#;
+
+async fn stylesheet() -> impl IntoResponse {
+    (
+        [(axum::http::header::CONTENT_TYPE, "text/css")],
+        STYLE_CSS,
+    )
+}
+
+fn stylesheet_link() -> &'static str {
+    r#"<link rel="stylesheet" href="/style.css" />"#
 }
 
 async fn root(State(state): State<AppState>) -> impl IntoResponse {
@@ -53,7 +121,7 @@ async fn root(State(state): State<AppState>) -> impl IntoResponse {
     Html(format!(
         r#"<!DOCTYPE html>
 <html>
-<head><title>Welcome to the blog</title></head>
+<head><title>Welcome to the blog</title>{stylesheet}</head>
 <body>
 {toolbar}
 <h1>Welcome to the blog</h1>
@@ -63,6 +131,7 @@ async fn root(State(state): State<AppState>) -> impl IntoResponse {
 </ul>
 </body>
 </html>"#,
+        stylesheet = stylesheet_link(),
         toolbar = toolbar(),
         links = links,
     ))
@@ -79,7 +148,7 @@ async fn new_post_form() -> Html<String> {
     Html(format!(
         r#"<!DOCTYPE html>
 <html>
-<head><title>New Post</title></head>
+<head><title>New Post</title>{stylesheet}</head>
 <body>
 {toolbar}
 <h1>New Post</h1>
@@ -90,6 +159,7 @@ async fn new_post_form() -> Html<String> {
 </form>
 </body>
 </html>"#,
+        stylesheet = stylesheet_link(),
         toolbar = toolbar(),
     ))
 }
@@ -114,13 +184,14 @@ async fn show_post_handler(
         Some(post) => Html(format!(
             r#"<!DOCTYPE html>
 <html>
-<head><title>{title}</title></head>
+<head><title>{title}</title>{stylesheet}</head>
 <body>
 {toolbar}
 <h1>{title}</h1>
 <div>{body}</div>
 </body>
 </html>"#,
+            stylesheet = stylesheet_link(),
             toolbar = toolbar(),
             title = escape_html(&post.title),
             body = escape_html(&post.body),
