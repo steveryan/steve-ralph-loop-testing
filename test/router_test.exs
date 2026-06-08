@@ -10,4 +10,12 @@ defmodule Blog.RouterTest do
     assert conn.state == :sent
     assert conn.status == 200
   end
+
+  test "the webserver shows the welcome page by default" do
+    conn = conn(:get, "/") |> Blog.Router.call(@opts)
+
+    assert conn.state == :sent
+    assert conn.status == 200
+    assert conn.resp_body =~ "Welcome to the blog"
+  end
 end
