@@ -1,9 +1,8 @@
 # Ralph Loop Spec
 
-Create a basic Blog in Go. I should be able to start a local server, navigate to it in my browser, view a list of posts, create a new post, etc. 
+Create a basic Blog in elixir. I should be able to start a local server, navigate to it in my browser, view a list of posts, create a new post, etc. 
 
 This does not need to have authentication or logins.
-You may store data such as the text content of the posts in memory, or files in this folder.
 
 ## Conventions
 
@@ -14,10 +13,11 @@ You may store data such as the text content of the posts in memory, or files in 
 
 ## Tasks
 
-- [ ] Create the basic go app that runs a local webserver
+- [ ] Create the basic elixir app that runs a local webserver
 - [ ] Create a test that the webserver is able to be accessed
 - [ ] Create a welcome page that is the home page of the blog. For now it should just say "Welcome to the blog"
 - [ ] Create a test that the webserver shows the welcome page by default
+- [ ] Create a SQLite db to store the posts in. The posts will contain a string title and a string body. Write a test for this.
 - [ ] Create a new post page located at /new that contains a form allowing the user to enter a title and body text. When the user submits the form it should persist the post.
 - [ ] Create a test that verifies this page is reachable and contains the right elements. Assert that when submited the post is persisted
 - [ ] Create a route /:post_title that finds and displays the post with a matching title (substitute "_"s in the url for spaces in the post title)
