@@ -1,0 +1,19 @@
+[package]
+name = "blog"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "blog"
+path = "src/lib.rs"
+
+[[bin]]
+name = "blog"
+path = "src/main.rs"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false }

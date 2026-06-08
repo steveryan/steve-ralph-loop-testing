@@ -14,7 +14,7 @@ The data should be stored using a local sqlite
 
 ## Tasks
 
-- [ ] Create the basic Rust app that runs a local webserver, and create a test that that webserver is available
+- [x] Create the basic Rust app that runs a local webserver, and create a test that that webserver is available
 - [ ] Create a welcome page that is the home page of the blog. For now it should just say "Welcome to the blog" and create a test that the webserver shows 
 - [ ] Create a basic SQLite db that will store the posts. The posts will contain a Title and a Body. Please also write a test that verifies this.
 - [ ] Create a new post page located at /new that contains a form allowing the user to enter a title and body text. When the user submits the form it should persist the post.
