@@ -1,0 +1,220 @@
+use std::sync::{Arc, Mutex};
+
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::{Html, IntoResponse, Redirect},
+    routing::get,
+    Form, Router,
+};
+use rusqlite::Connection;
+use serde::Deserialize;
+
+pub mod db;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub conn: Arc<Mutex<Connection>>,
+}
+
+pub fn app() -> Router {
+    let conn = db::open_in_memory().expect("failed to open db");
+    app_with_conn(conn)
+}
+
+pub fn app_with_conn(conn: Connection) -> Router {
+    let state = AppState {
+        conn: Arc::new(Mutex::new(conn)),
+    };
+    Router::new()
+        .route("/", get(root))
+        .route("/new", get(new_post_form).post(create_post_handler))
+        .route("/style.css", get(stylesheet))
+        .route("/:post_title", get(show_post_handler))
+        .with_state(state)
+}
+
+const STYLE_CSS: &str = r#":root {
+  --accent: #2563eb;
+  --bg: #f7f7f9;
+  --fg: #1f2933;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+  margin: 0;
+  padding: 0 0 3rem;
+}
+.toolbar {
+  background: var(--accent);
+  padding: 0.75rem 1.5rem;
+  margin-bottom: 2rem;
+}
+.toolbar a {
+  color: #fff;
+  text-decoration: none;
+  margin-right: 1.25rem;
+  font-weight: 600;
+}
+.toolbar a:hover { text-decoration: underline; }
+h1, h2, form, ul, div {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+a { color: var(--accent); }
+form input[type="text"],
+form textarea {
+  width: 100%;
+  padding: 0.5rem;
+  margin: 0.25rem 0 1rem;
+  border: 1px solid #cbd2d9;
+  border-radius: 4px;
+  font: inherit;
+}
+form textarea { min-height: 8rem; }
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { opacity: 0.9; }
+"#;
+
+async fn stylesheet() -> impl IntoResponse {
+    (
+        [(axum::http::header::CONTENT_TYPE, "text/css")],
+        STYLE_CSS,
+    )
+}
+
+fn stylesheet_link() -> &'static str {
+    r#"<link rel="stylesheet" href="/style.css" />"#
+}
+
+async fn root(State(state): State<AppState>) -> impl IntoResponse {
+    let posts = {
+        let conn = state.conn.lock().expect("db lock poisoned");
+        db::get_recent_posts(&conn, 10).expect("failed to query recent posts")
+    };
+    let links = posts
+        .iter()
+        .map(|post| {
+            let url = format!("/{}", post.title.replace(' ', "_"));
+            format!(
+                "<li><a href=\"{url}\">{title}</a></li>",
+                url = escape_html(&url),
+                title = escape_html(&post.title),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    Html(format!(
+        r#"<!DOCTYPE html>
+<html>
+<head><title>Welcome to the blog</title>{stylesheet}</head>
+<body>
+{toolbar}
+<h1>Welcome to the blog</h1>
+<h2>Recent Posts</h2>
+<ul>
+{links}
+</ul>
+</body>
+</html>"#,
+        stylesheet = stylesheet_link(),
+        toolbar = toolbar(),
+        links = links,
+    ))
+}
+
+fn toolbar() -> &'static str {
+    r#"<nav class="toolbar">
+  <a href="/">Home</a>
+  <a href="/new">New Post</a>
+</nav>"#
+}
+
+async fn new_post_form() -> Html<String> {
+    Html(format!(
+        r#"<!DOCTYPE html>
+<html>
+<head><title>New Post</title>{stylesheet}</head>
+<body>
+{toolbar}
+<h1>New Post</h1>
+<form method="post" action="/new">
+  <label>Title: <input type="text" name="title" /></label><br />
+  <label>Body: <textarea name="body"></textarea></label><br />
+  <button type="submit">Create Post</button>
+</form>
+</body>
+</html>"#,
+        stylesheet = stylesheet_link(),
+        toolbar = toolbar(),
+    ))
+}
+
+fn escape_html(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+async fn show_post_handler(
+    State(state): State<AppState>,
+    Path(post_title): Path<String>,
+) -> impl IntoResponse {
+    let title = post_title.replace('_', " ");
+    let post = {
+        let conn = state.conn.lock().expect("db lock poisoned");
+        db::get_post_by_title(&conn, &title).expect("failed to query post")
+    };
+    match post {
+        Some(post) => Html(format!(
+            r#"<!DOCTYPE html>
+<html>
+<head><title>{title}</title>{stylesheet}</head>
+<body>
+{toolbar}
+<h1>{title}</h1>
+<div>{body}</div>
+</body>
+</html>"#,
+            stylesheet = stylesheet_link(),
+            toolbar = toolbar(),
+            title = escape_html(&post.title),
+            body = escape_html(&post.body),
+        ))
+        .into_response(),
+        None => (StatusCode::NOT_FOUND, "Post not found").into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct NewPost {
+    title: String,
+    body: String,
+}
+
+async fn create_post_handler(
+    State(state): State<AppState>,
+    Form(input): Form<NewPost>,
+) -> impl IntoResponse {
+    {
+        let conn = state.conn.lock().expect("db lock poisoned");
+        db::create_post(&conn, &input.title, &input.body).expect("failed to persist post");
+    }
+    let url = format!("/{}", input.title.replace(' ', "_"));
+    Redirect::to(&url)
+}
