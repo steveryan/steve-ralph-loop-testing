@@ -23,5 +23,39 @@ defmodule BlogWeb.PostLiveTest do
       assert has_element?(view, "ul#posts")
       refute has_element?(view, "ul#posts a")
     end
+
+    test "shows a link to create a new post", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, ~s|a[href="/posts/new"]|, "New Post")
+    end
+  end
+
+  describe "New" do
+    test "creates a post and redirects to its slug page on valid submit", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/posts/new")
+
+      view
+      |> form("#post-form", post: %{title: "My New Post", body: "Hello **world**"})
+      |> render_submit()
+
+      assert_redirect(view, "/posts/my-new-post")
+
+      post = Content.get_post_by_slug!("my-new-post")
+      assert post.title == "My New Post"
+      assert post.body == "Hello **world**"
+    end
+
+    test "shows validation errors and creates nothing on blank submit", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/posts/new")
+
+      html =
+        view
+        |> form("#post-form", post: %{title: "", body: ""})
+        |> render_submit()
+
+      assert html =~ "can&#39;t be blank"
+      assert Content.list_posts() == []
+    end
   end
 end

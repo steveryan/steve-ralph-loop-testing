@@ -19,9 +19,12 @@ defmodule BlogWeb.PostLive.Index do
     ~H"""
     <Layouts.app flash={@flash}>
       <div class="space-y-8">
-        <header class="space-y-1">
-          <h1 class="text-3xl font-semibold tracking-tight">Posts</h1>
-          <p class="text-base-content/60">The latest writing, newest first.</p>
+        <header class="flex flex-wrap items-start justify-between gap-4">
+          <div class="space-y-1">
+            <h1 class="text-3xl font-semibold tracking-tight">Posts</h1>
+            <p class="text-base-content/60">The latest writing, newest first.</p>
+          </div>
+          <.button variant="primary" navigate={~p"/posts/new"}>New Post</.button>
         </header>
 
         <ul id="posts" phx-update="stream" class="divide-y divide-base-200">
