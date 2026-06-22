@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Ralph loop driver for GitHub Copilot CLI.
 #
-# Tasks always come from a GitHub issue's checklist. Each run:
-#   1. Runs an interactive planning pass so Copilot can refine the issue's
-#      task list and ask the user clarifying questions.
+# Tasks always come from a GitHub issue's checklist. Planning is done BEFORE
+# this script runs, by the agent that invoked the SRLW skill (it reads the
+# issue, asks the user clarifying questions, and writes an ordered "- [ ]"
+# checklist back to the issue body). This script is the LOOP ONLY:
+#   1. Verify the issue already holds pending "- [ ]" tasks (else refuse).
 #   2. For each remaining "- [ ]" task, spawns a fresh, non-interactive
 #      `copilot` process (clean context) that implements the FIRST task,
 #      runs tests, checks it off on the issue, and commits.
@@ -124,68 +126,18 @@ pending_count() {
 TASK_SRC_LABEL="issue $ISSUE_LINK"
 
 # ----------------------------------------------------------------------------
-# Planning pass (interactive). Always runs before the loop: let Copilot read
-# the issue, ask the user any clarifying questions, and ensure a clean,
-# ordered, step-by-step checklist exists so the loop can complete exactly one
-# item per iteration.
+# Planning happens BEFORE this script runs. The agent that invoked the SRLW
+# skill does the planning itself (in its own context): it reads the issue,
+# skims the repo, asks the user any clarifying questions, and writes a clean,
+# ordered "- [ ]" checklist back to the issue body. This script is the LOOP
+# ONLY -- it therefore requires that pending tasks already exist on the issue.
 # ----------------------------------------------------------------------------
-read -r -d '' PLAN_PROMPT <<'PROMPT' || true
-You are the PLANNING step of a Ralph loop. You are NOT implementing anything
-this turn. Your job is to make sure the GitHub issue contains a clear,
-ordered, step-by-step task list that a fresh agent (with no memory of this
-session) can execute ONE item per iteration.
-
-The task list lives in this GitHub issue:
-  gh issue view __ISSUE_LINK__
-
-Do this:
-
-1. Read the issue with `gh issue view __ISSUE_LINK__` and skim the repository
-   (README, build/manifest files, source, and tests) to understand the
-   project and what the issue is asking for.
-2. If anything about the desired outcome is ambiguous or underspecified, USE
-   THE ask_user TOOL to ask the user concise clarifying questions BEFORE
-   writing tasks. Incorporate their answers.
-3. Ensure the issue body contains a checklist of "- [ ]" tasks where:
-   - Each task is a single, self-contained step completable in one iteration.
-   - Tasks are ordered so earlier ones unblock later ones.
-   - Together they FULLY cover everything the issue asks for (setup,
-     implementation, tests, and any docs/config the work needs).
-   - Each task line carries enough detail (files, expected behavior,
-     acceptance criteria) for a fresh agent to act on it.
-   - If tasks already exist, refine and extend them instead of duplicating:
-     fill gaps and add missing context. If none exist, write them.
-4. Write the finalized checklist (plus any supporting context) back to the
-   issue body:
-     gh issue view __ISSUE_LINK__ --json body -q .body > /tmp/ralph-plan.md
-     # edit /tmp/ralph-plan.md so it contains the full task list + context
-     gh issue edit __ISSUE_LINK__ --body-file /tmp/ralph-plan.md
-
-Hard rules:
-- Do NOT implement any task or write code this turn.
-- Do NOT mark any task "- [x]".
-- Do NOT edit ralph.sh.
-- Keep each task small enough that exactly one fits in a single iteration.
-PROMPT
-PLAN_PROMPT="${PLAN_PROMPT//__ISSUE_LINK__/$ISSUE_LINK}"
-
-printf '\n=== ralph planning (%s) ===\n' "$TASK_SRC_LABEL"
-echo "ralph: Copilot will review the tasks and may ask you clarifying"
-echo "ralph: questions. Answer them, then exit the session (/exit) to start"
-echo "ralph: the loop."
-
-plan_args=(-i "$PLAN_PROMPT" --allow-all-tools)
-[ -n "$MODEL" ]  && plan_args+=(--model "$MODEL")
-[ -n "$EFFORT" ] && plan_args+=(--effort "$EFFORT")
-
-if ! copilot "${plan_args[@]}"; then
-  echo "ralph: planning step exited non-zero. Stopping." >&2
-  exit 1
-fi
-
 if [ "$(pending_count)" -eq 0 ]; then
-  echo "ralph: planning produced no pending tasks in $TASK_SRC_LABEL. Nothing to do." >&2
-  exit 0
+  echo "ralph: no pending '- [ ]' tasks found in $TASK_SRC_LABEL." >&2
+  echo "ralph: Planning must run first. The SRLW skill agent reads the issue," >&2
+  echo "ralph: asks any clarifying questions, and writes an ordered checklist" >&2
+  echo "ralph: back to the issue body. Do that, then re-run this loop." >&2
+  exit 1
 fi
 
 iter=0
