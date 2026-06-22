@@ -9,6 +9,34 @@ from the issue, implements it, runs the relevant checks, marks the task
 
 State lives in **git** and the **GitHub issue**, never in the agent's context.
 
+## Blog app
+
+This repository also contains the app the loop built: a simple blog using
+**Elixir + Phoenix (LiveView)** with a **SQLite** database. It lets you
+create, persist, and view Markdown posts — no user accounts or
+authentication required.
+
+### Run it locally
+
+Requires Elixir/OTP installed. From the repo root:
+
+```bash
+# Install deps and create + migrate the SQLite database (also builds assets):
+mix setup
+# (equivalent to: mix deps.get && mix ecto.create && mix ecto.migrate)
+
+# Start the Phoenix server:
+mix phx.server
+```
+
+Then open <http://localhost:4000>. The available routes are:
+
+| URL            | What it does                      |
+|----------------|-----------------------------------|
+| `/`            | List all posts (newest first)     |
+| `/posts/new`   | Create a new post                 |
+| `/posts/:slug` | View a single post by its slug    |
+
 ## Prerequisites
 
 - [GitHub Copilot CLI](https://github.com/github/copilot-cli) installed
