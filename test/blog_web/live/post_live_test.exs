@@ -58,4 +58,37 @@ defmodule BlogWeb.PostLiveTest do
       assert Content.list_posts() == []
     end
   end
+
+  describe "Show" do
+    test "renders the post title and its Markdown body as HTML", %{conn: conn} do
+      {:ok, post} =
+        Content.create_post(%{title: "Rendered Post", body: "Hello **world**"})
+
+      {:ok, view, html} = live(conn, ~p"/posts/#{post.slug}")
+
+      assert has_element?(view, "h1", "Rendered Post")
+      assert html =~ "<strong>world</strong>"
+    end
+
+    test "raises a 404 for an unknown slug", %{conn: conn} do
+      assert_raise Ecto.NoResultsError, fn ->
+        live(conn, ~p"/posts/does-not-exist")
+      end
+    end
+
+    test "supports the create then view flow end-to-end", %{conn: conn} do
+      {:ok, new_view, _html} = live(conn, ~p"/posts/new")
+
+      new_view
+      |> form("#post-form", post: %{title: "End To End", body: "This is **bold** text"})
+      |> render_submit()
+
+      assert_redirect(new_view, "/posts/end-to-end")
+
+      {:ok, show_view, html} = live(conn, ~p"/posts/end-to-end")
+
+      assert has_element?(show_view, "h1", "End To End")
+      assert html =~ "<strong>bold</strong>"
+    end
+  end
 end
