@@ -58,6 +58,17 @@ fi
 
 mkdir -p "$LOG_DIR"
 
+# Transcripts are written locally for inspection but must NEVER be committed or
+# pushed. Add LOG_DIR to this clone's local (uncommitted) git ignore so neither
+# this script nor an iteration's `git add` can sweep logs into history. Using
+# .git/info/exclude keeps this out of the repo (unlike a tracked .gitignore).
+git_dir="$(git rev-parse --git-dir)"
+mkdir -p "$git_dir/info"
+log_ignore="${LOG_DIR%/}/"
+if ! grep -qxF "$log_ignore" "$git_dir/info/exclude" 2>/dev/null; then
+  echo "$log_ignore" >> "$git_dir/info/exclude"
+fi
+
 read -r -d '' PROMPT <<'PROMPT' || true
 You are running inside a Ralph loop. Each invocation starts with a fresh
 context, so you cannot rely on memory of previous turns -- only on the
@@ -192,16 +203,9 @@ while [ "$(pending_count)" -gt 0 ]; do
     fi
   fi
 
-  # Commit the iteration's transcript log so the loop history is preserved
-  # in git. Only runs after a successful agent commit and verification.
-  if [ -f "$log" ]; then
-    git add -- "$log"
-    if ! git diff --cached --quiet -- "$log"; then
-      git commit -m "ralph: log for iteration $iter ($(git rev-parse --short "$new_head"))" -- "$log"
-    fi
-  else
-    echo "ralph: no transcript at $log to commit (skipping log commit)." >&2
-  fi
+  # The iteration transcript is kept locally at "$log" for inspection but is
+  # intentionally NOT committed (LOG_DIR is in .git/info/exclude). The branch
+  # pushed to GitHub therefore contains only code + the issue-driven history.
 
   remaining="$(pending_count)"
   echo "ralph: $remaining pending task(s) in $TASK_SRC_LABEL (blocked tasks are not counted)"
