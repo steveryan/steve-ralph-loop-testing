@@ -1,17 +1,21 @@
 # Ralph Starter for GitHub Copilot CLI
 
 A minimal [Ralph-loop](https://blog.codacy.com/what-everyone-gets-wrong-about-the-ralph-loop)
-driver built on `copilot -p`. Each iteration is a fresh Copilot CLI process
-that picks the next unchecked task from `SPEC.md`, implements it, runs the
-relevant checks, marks the task `[x]`, and commits.
+driver built on `copilot -p`. Tasks always come from a **GitHub issue**
+checklist. The run starts with an interactive planning pass, then each
+iteration is a fresh Copilot CLI process that picks the next unchecked task
+from the issue, implements it, runs the relevant checks, marks the task
+`[x]` on the issue, and commits.
 
-State lives in **git** and **SPEC.md**, never in the agent's context.
+State lives in **git** and the **GitHub issue**, never in the agent's context.
 
 ## Prerequisites
 
 - [GitHub Copilot CLI](https://github.com/github/copilot-cli) installed
   (`copilot` on `PATH`).
 - An active Copilot subscription and a logged-in session (`copilot /login`).
+- The [`gh` CLI](https://cli.github.com/) installed and authenticated
+  (`gh auth status`) — tasks are read from and checked off on a GitHub issue.
 - This directory initialized as a git repo with a clean working tree.
 
 ## Quick start
@@ -20,19 +24,22 @@ State lives in **git** and **SPEC.md**, never in the agent's context.
 cd ralph-starter
 git init && git add . && git commit -m "init"
 
-# Edit SPEC.md and replace the example tasks with your own.
+# Create a GitHub issue describing the work (a rough task list is fine —
+# the planning step will refine it), then pass its link or number:
 
-./ralph.sh
+./ralph.sh <issue-link-or-number>
 ```
 
-By default the loop pauses after every iteration so you can review the diff
+The run begins with an interactive planning pass where Copilot refines the
+issue's task list and may ask you clarifying questions. After you exit that
+session, the loop pauses after every iteration so you can review the diff
 and Ctrl+C out if things look wrong.
 
 ## Environment variables
 
 | var          | default        | meaning                                              |
 |--------------|----------------|------------------------------------------------------|
-| `SPEC`       | `SPEC.md`      | Path to the task checklist                           |
+| `ISSUE_LINK` | (1st arg)      | GitHub issue link/number holding the task checklist  |
 | `LOG_DIR`    | `logs`         | Per-iteration markdown transcripts (`--share` output)|
 | `MODEL`      | (cli default)  | e.g. `claude-sonnet-4.5`, `gpt-5`                    |
 | `EFFORT`     | (cli default)  | `none\|low\|medium\|high\|xhigh\|max`                |
@@ -44,21 +51,24 @@ Examples:
 
 ```bash
 # Fully autonomous, capped at 10 iterations
-GATE=0 MAX_ITERS=10 ./ralph.sh
+GATE=0 MAX_ITERS=10 ./ralph.sh 42
 
 # Use a specific model and higher reasoning effort
-MODEL=gpt-5 EFFORT=high ./ralph.sh
+MODEL=gpt-5 EFFORT=high ./ralph.sh 42
 
-# Drive a different spec file
-SPEC=docs/refactor-plan.md ./ralph.sh
+# Pass the issue via env var instead of an argument
+ISSUE_LINK=https://github.com/owner/repo/issues/42 ./ralph.sh
 
 # Enforce green tests after every iteration (recommended)
-RALPH_TEST_CMD="pytest -q" ./ralph.sh
+RALPH_TEST_CMD="pytest -q" ./ralph.sh 42
 ```
 
 ## How it works
 
-1. `ralph.sh` greps `SPEC.md` for lines starting with `- [ ]`.
+0. `ralph.sh` runs an interactive planning pass: Copilot reads the issue,
+   asks you any clarifying questions, and writes a clean, ordered `- [ ]`
+   checklist back to the issue body.
+1. It then reads the issue body and greps for lines starting with `- [ ]`.
 2. While any exist, it spawns:
 
    ```bash
@@ -79,8 +89,8 @@ RALPH_TEST_CMD="pytest -q" ./ralph.sh
 
 3. The agent commits its own work (`ralph: ...` prefix) **only if the
    relevant tests/linters/builds pass**. On failure it stashes the WIP,
-   marks the task with `<!-- blocked: ... -->`, commits just that marker,
-   and the loop stops.
+   marks the task on the issue with `<!-- blocked: ... -->`, records an
+   empty marker commit, and the loop stops.
 4. After the agent returns, the script enforces two invariants itself
    (so the prompt isn't the only thing standing between you and a bad
    commit):
@@ -100,13 +110,12 @@ RALPH_TEST_CMD="pytest -q" ./ralph.sh
   and `git diff HEAD~N` afterwards; revert with `git reset --hard` if a
   run goes off the rails.
 - Transcripts in `logs/` capture each iteration verbatim -- handy for
-  postmortems and for tuning your prompt or spec.
+  postmortems and for tuning your prompt or issue tasks.
 
 ## Where to go from here
 
 - Replace the Ctrl+C gate with a CI-style check (`pytest`, `npm test`,
   `cargo test`) that must pass before the next iteration starts.
-- Add an outer loop that pulls tasks from a GitHub issue list instead of
-  `SPEC.md` (`gh issue list --label ralph --json number,title`).
+- Use `gh issue list --label ralph` to find issues to drive the loop with.
 - Combine with `--mode autopilot` inside each iteration if you want the
   agent to push harder before returning.
