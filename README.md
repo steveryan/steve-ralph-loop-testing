@@ -53,7 +53,7 @@ cd ralph-starter
 git init && git add . && git commit -m "init"
 
 # Create a GitHub issue describing the work (a rough task list is fine —
-# the planning step will refine it), then pass its link or number:
+# the planning pass will refine it), then pass its link or number:
 
 ./ralph.sh <issue-link-or-number>
 ```
