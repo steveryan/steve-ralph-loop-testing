@@ -7,10 +7,29 @@ defmodule BlogWeb.PostControllerTest do
   @update_attrs %{title: "some updated title", body: "some updated body"}
   @invalid_attrs %{title: nil, body: nil}
 
+  describe "home page" do
+    test "GET / renders the posts list", %{conn: conn} do
+      conn = get(conn, ~p"/")
+      assert html_response(conn, 200) =~ "Listing Posts"
+    end
+  end
+
   describe "index" do
     test "lists all posts", %{conn: conn} do
       conn = get(conn, ~p"/posts")
       assert html_response(conn, 200) =~ "Listing Posts"
+    end
+  end
+
+  describe "show post" do
+    setup [:create_post]
+
+    test "renders a single post when linked directly", %{conn: conn, post: post} do
+      conn = get(conn, ~p"/posts/#{post}")
+      response = html_response(conn, 200)
+      assert response =~ "Post #{post.id}"
+      assert response =~ post.title
+      assert response =~ post.body
     end
   end
 
