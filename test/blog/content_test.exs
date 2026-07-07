@@ -29,11 +29,25 @@ defmodule Blog.ContentTest do
     end
 
     test "create_post/1 with valid data creates a post" do
-      valid_attrs = %{title: "some title", body: "some body"}
+      valid_attrs = %{title: "some title", body: "some body content"}
 
       assert {:ok, %Post{} = post} = Content.create_post(valid_attrs)
       assert post.title == "some title"
-      assert post.body == "some body"
+      assert post.body == "some body content"
+    end
+
+    test "create_post/1 with a body shorter than 10 characters returns error changeset" do
+      short_attrs = %{title: "some title", body: "too short"}
+
+      assert {:error, %Ecto.Changeset{} = changeset} = Content.create_post(short_attrs)
+      assert "should be at least 10 character(s)" in errors_on(changeset).body
+    end
+
+    test "create_post/1 succeeds when body is at least 10 characters" do
+      long_attrs = %{title: "some title", body: "long enough"}
+
+      assert {:ok, %Post{} = post} = Content.create_post(long_attrs)
+      assert post.body == "long enough"
     end
 
     test "create_post/1 with invalid data returns error changeset" do

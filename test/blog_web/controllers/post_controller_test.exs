@@ -3,7 +3,7 @@ defmodule BlogWeb.PostControllerTest do
 
   import Blog.ContentFixtures
 
-  @create_attrs %{title: "some title", body: "some body"}
+  @create_attrs %{title: "some title", body: "some body content"}
   @update_attrs %{title: "some updated title", body: "some updated body"}
   @invalid_attrs %{title: nil, body: nil}
 
