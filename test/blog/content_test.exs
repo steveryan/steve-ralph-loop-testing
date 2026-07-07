@@ -15,6 +15,14 @@ defmodule Blog.ContentTest do
       assert Content.list_posts() == [post]
     end
 
+    test "list_posts/0 returns posts newest-first" do
+      oldest = post_fixture(title: "oldest")
+      middle = post_fixture(title: "middle")
+      newest = post_fixture(title: "newest")
+
+      assert Content.list_posts() == [newest, middle, oldest]
+    end
+
     test "get_post!/1 returns the post with given id" do
       post = post_fixture()
       assert Content.get_post!(post.id) == post
