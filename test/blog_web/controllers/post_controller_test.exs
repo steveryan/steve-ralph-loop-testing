@@ -19,6 +19,14 @@ defmodule BlogWeb.PostControllerTest do
       conn = get(conn, ~p"/posts")
       assert html_response(conn, 200) =~ "Listing Posts"
     end
+
+    test "shows each post's publication date", %{conn: conn} do
+      post = post_fixture()
+      formatted_date = Calendar.strftime(post.inserted_at, "%B %-d, %Y")
+
+      conn = get(conn, ~p"/posts")
+      assert html_response(conn, 200) =~ formatted_date
+    end
   end
 
   describe "show post" do

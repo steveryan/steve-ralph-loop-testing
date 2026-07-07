@@ -12,6 +12,10 @@
     </:actions>
   </.header>
 
+  <p class="mb-4 text-sm text-base-content/60">
+    {Calendar.strftime(@post.inserted_at, "%B %-d, %Y")}
+  </p>
+
   <article class="whitespace-pre-line text-base leading-relaxed text-base-content/90">
     {@post.body}
   </article>
