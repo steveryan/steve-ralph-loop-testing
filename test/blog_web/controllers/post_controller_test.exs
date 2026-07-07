@@ -27,6 +27,22 @@ defmodule BlogWeb.PostControllerTest do
       conn = get(conn, ~p"/posts")
       assert html_response(conn, 200) =~ formatted_date
     end
+
+    test "shows a pluralized post count in the header", %{conn: conn} do
+      for _ <- 1..3, do: post_fixture()
+
+      conn = get(conn, ~p"/posts")
+      assert html_response(conn, 200) =~ "3 posts"
+    end
+
+    test "shows a singular post count when there is exactly one post", %{conn: conn} do
+      post_fixture()
+
+      conn = get(conn, ~p"/posts")
+      response = html_response(conn, 200)
+      assert response =~ "1 post"
+      refute response =~ "1 posts"
+    end
   end
 
   describe "show post" do

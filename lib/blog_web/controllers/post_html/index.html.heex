@@ -1,6 +1,9 @@
 <Layouts.app flash={@flash}>
   <.header>
     Listing Posts
+    <span class="ml-2 align-middle text-sm font-normal text-base-content/50">
+      {post_count_label(@posts)}
+    </span>
     <:subtitle>Recent writing from the blog.</:subtitle>
     <:actions>
       <.button variant="primary" navigate={~p"/posts/new"}>

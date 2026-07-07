@@ -14,4 +14,18 @@ defmodule BlogWeb.PostHTML do
   attr :return_to, :string, default: nil
 
   def post_form(assigns)
+
+  @doc """
+  Returns a human-friendly label for how many posts are listed.
+
+  The count is derived from the already-loaded `posts` list so the index
+  page does not need an additional query.
+  """
+  def post_count_label(posts) do
+    case length(posts) do
+      0 -> "No posts yet"
+      1 -> "1 post"
+      count -> "#{count} posts"
+    end
+  end
 end
