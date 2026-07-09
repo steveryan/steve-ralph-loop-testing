@@ -119,3 +119,35 @@ RALPH_TEST_CMD="pytest -q" ./ralph.sh 42
 - Use `gh issue list --label ralph` to find issues to drive the loop with.
 - Combine with `--mode autopilot` inside each iteration if you want the
   agent to push harder before returning.
+
+---
+
+# The Rust blog (demo app)
+
+This repository also contains a very simple blog application that the Ralph
+loop built as a demo. It's a server-rendered Rust app (`axum` + `rusqlite`)
+with no authentication.
+
+## Running it
+
+```bash
+cargo run
+```
+
+Then open <http://127.0.0.1:3000> in your browser. Posts persist in a local
+`blog.db` SQLite file created in the project root on first run.
+
+## Routes
+
+| Method & path      | What it does                                        |
+|--------------------|-----------------------------------------------------|
+| `GET /`            | Lists all posts (newest first), links to each post  |
+| `GET /posts/new`   | HTML form for creating a new post                   |
+| `POST /posts`      | Creates a post, then redirects to `/posts/{id}`     |
+| `GET /posts/{id}`  | Shows a single post (`404` if it doesn't exist)     |
+
+## Running the tests
+
+```bash
+cargo test
+```
