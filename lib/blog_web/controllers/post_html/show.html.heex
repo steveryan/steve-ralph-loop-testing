@@ -1,0 +1,22 @@
+<Layouts.app flash={@flash}>
+  <.header>
+    {@post.title}
+    <:subtitle>Post {@post.id}</:subtitle>
+    <:actions>
+      <.button navigate={~p"/posts"}>
+        <.icon name="hero-arrow-left" /> Back
+      </.button>
+      <.button variant="primary" navigate={~p"/posts/#{@post}/edit"}>
+        <.icon name="hero-pencil-square" /> Edit post
+      </.button>
+    </:actions>
+  </.header>
+
+  <p class="mb-4 text-sm text-base-content/60">
+    {Calendar.strftime(@post.inserted_at, "%B %-d, %Y")}
+  </p>
+
+  <article class="whitespace-pre-line text-base leading-relaxed text-base-content/90">
+    {@post.body}
+  </article>
+</Layouts.app>
