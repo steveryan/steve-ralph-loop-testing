@@ -7,3 +7,6 @@ edition = "2024"
 axum = "0.8.9"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

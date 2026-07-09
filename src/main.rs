@@ -1,11 +1,20 @@
-use axum::{routing::get, Router};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::Html,
+    routing::get,
+    Router,
+};
 
 mod db;
 
 type Db = std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>;
 
 fn app(db: Db) -> Router {
-    Router::new().route("/", get(index)).with_state(db)
+    Router::new()
+        .route("/", get(index))
+        .route("/posts/{id}", get(show_post))
+        .with_state(db)
 }
 
 #[tokio::main]
@@ -20,13 +29,65 @@ async fn main() {
     axum::serve(listener, app(db)).await.unwrap();
 }
 
-async fn index() -> &'static str {
-    "blog"
+async fn index(State(db): State<Db>) -> Html<String> {
+    let posts = {
+        let conn = db.lock().unwrap();
+        db::list_posts(&conn).unwrap()
+    };
+
+    let content = if posts.is_empty() {
+        "<p>No posts yet</p>".to_string()
+    } else {
+        let items: String = posts
+            .iter()
+            .map(|p| format!("<li><a href=\"/posts/{}\">{}</a></li>", p.id, p.title))
+            .collect();
+        format!("<ul>{}</ul>", items)
+    };
+
+    Html(format!(
+        "<!DOCTYPE html><html><head><title>blog</title></head><body><h1>blog</h1>{}</body></html>",
+        content
+    ))
+}
+
+async fn show_post(
+    State(db): State<Db>,
+    Path(id): Path<i64>,
+) -> Result<Html<String>, StatusCode> {
+    let post = {
+        let conn = db.lock().unwrap();
+        db::get_post(&conn, id).unwrap()
+    };
+
+    match post {
+        Some(post) => Ok(Html(format!(
+            "<!DOCTYPE html><html><head><title>{}</title></head><body><h1>{}</h1><p>{}</p><p><a href=\"/\">Back</a></p></body></html>",
+            post.title, post.title, post.body
+        ))),
+        None => Err(StatusCode::NOT_FOUND),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::body::{to_bytes, Body};
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    fn seeded_db() -> (Db, i64) {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        db::init_db(&conn).unwrap();
+        let post = db::insert_post(&conn, "Seeded Title", "Seeded body content").unwrap();
+        let db: Db = std::sync::Arc::new(std::sync::Mutex::new(conn));
+        (db, post.id)
+    }
+
+    async fn body_string(response: axum::response::Response) -> String {
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        String::from_utf8(bytes.to_vec()).unwrap()
+    }
 
     #[test]
     fn trivial() {
@@ -39,5 +100,49 @@ mod tests {
         db::init_db(&conn).unwrap();
         let db: Db = std::sync::Arc::new(std::sync::Mutex::new(conn));
         let _router = app(db);
+    }
+
+    #[tokio::test]
+    async fn index_lists_posts() {
+        let (db, _id) = seeded_db();
+        let response = app(db)
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = body_string(response).await;
+        assert!(body.contains("Seeded Title"));
+    }
+
+    #[tokio::test]
+    async fn show_post_contains_body() {
+        let (db, id) = seeded_db();
+        let response = app(db)
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/posts/{}", id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = body_string(response).await;
+        assert!(body.contains("Seeded body content"));
+    }
+
+    #[tokio::test]
+    async fn show_missing_post_returns_404() {
+        let (db, _id) = seeded_db();
+        let response = app(db)
+            .oneshot(
+                Request::builder()
+                    .uri("/posts/9999")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }
