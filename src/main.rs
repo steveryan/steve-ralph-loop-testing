@@ -1,10 +1,11 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Form, Path, State},
     http::StatusCode,
-    response::Html,
-    routing::get,
+    response::{Html, Redirect},
+    routing::{get, post},
     Router,
 };
+use serde::Deserialize;
 
 mod db;
 
@@ -13,6 +14,8 @@ type Db = std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>;
 fn app(db: Db) -> Router {
     Router::new()
         .route("/", get(index))
+        .route("/posts/new", get(new_post_form))
+        .route("/posts", post(create_post))
         .route("/posts/{id}", get(show_post))
         .with_state(db)
 }
@@ -46,7 +49,7 @@ async fn index(State(db): State<Db>) -> Html<String> {
     };
 
     Html(format!(
-        "<!DOCTYPE html><html><head><title>blog</title></head><body><h1>blog</h1>{}</body></html>",
+        "<!DOCTYPE html><html><head><title>blog</title></head><body><h1>blog</h1><p><a href=\"/posts/new\">New post</a></p>{}</body></html>",
         content
     ))
 }
@@ -67,6 +70,32 @@ async fn show_post(
         ))),
         None => Err(StatusCode::NOT_FOUND),
     }
+}
+
+#[derive(Deserialize)]
+struct NewPost {
+    title: String,
+    body: String,
+}
+
+async fn new_post_form() -> Html<String> {
+    Html(
+        "<!DOCTYPE html><html><head><title>New post</title></head><body><h1>New post</h1>\
+         <form method=\"post\" action=\"/posts\">\
+         <p><label>Title <input type=\"text\" name=\"title\"></label></p>\
+         <p><label>Body <textarea name=\"body\"></textarea></label></p>\
+         <p><button type=\"submit\">Create</button></p>\
+         </form><p><a href=\"/\">Back</a></p></body></html>"
+            .to_string(),
+    )
+}
+
+async fn create_post(State(db): State<Db>, Form(new_post): Form<NewPost>) -> Redirect {
+    let post = {
+        let conn = db.lock().unwrap();
+        db::insert_post(&conn, &new_post.title, &new_post.body).unwrap()
+    };
+    Redirect::to(&format!("/posts/{}", post.id))
 }
 
 #[cfg(test)]
@@ -144,5 +173,49 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn create_post_redirects_and_persists() {
+        let (db, _id) = seeded_db();
+        let response = app(db.clone())
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/posts")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from("title=New+Title&body=New+body+content"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(response.status().is_redirection());
+
+        let posts = {
+            let conn = db.lock().unwrap();
+            db::list_posts(&conn).unwrap()
+        };
+        assert!(posts
+            .iter()
+            .any(|p| p.title == "New Title" && p.body == "New body content"));
+    }
+
+    #[tokio::test]
+    async fn new_post_form_renders() {
+        let (db, _id) = seeded_db();
+        let response = app(db)
+            .oneshot(
+                Request::builder()
+                    .uri("/posts/new")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = body_string(response).await;
+        assert!(body.contains("<form"));
+        assert!(body.contains("name=\"title\""));
+        assert!(body.contains("name=\"body\""));
     }
 }
