@@ -1,8 +1,14 @@
 use axum::{routing::get, Router};
 
+mod db;
+
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/", get(root));
+    let pool = db::init_pool("tweets.db")
+        .await
+        .expect("failed to initialize database");
+
+    let app = Router::new().route("/", get(root)).with_state(pool);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
