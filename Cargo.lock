@@ -1777,6 +1777,7 @@ dependencies = [
  "serde",
  "sqlx",
  "tokio",
+ "tower",
 ]
 
 [[package]]

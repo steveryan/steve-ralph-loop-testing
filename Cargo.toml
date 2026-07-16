@@ -11,3 +11,6 @@ askama = "0.12"
 askama_axum = "0.4"
 serde = { version = "1", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
