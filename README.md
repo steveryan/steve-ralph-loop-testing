@@ -119,3 +119,36 @@ RALPH_TEST_CMD="pytest -q" ./ralph.sh 42
 - Use `gh issue list --label ralph` to find issues to drive the loop with.
 - Combine with `--mode autopilot` inside each iteration if you want the
   agent to push harder before returning.
+
+---
+
+## Twitter clone
+
+This repo also contains a small Twitter-clone web app that the Ralph loop built
+from issue #14. It persists tweets (`author_name`, `body`, `created`
+timestamp) and shows them newest-first, with a form to post new ones. There are
+no user accounts.
+
+**Tech stack:** [axum](https://github.com/tokio-rs/axum) web framework,
+[sqlx](https://github.com/launchbadge/sqlx) with SQLite for persistence, and
+[askama](https://github.com/rinja-rs/askama) for server-rendered HTML templates.
+
+### Run it
+
+```bash
+cargo run
+# then open http://127.0.0.1:3000
+```
+
+The homepage lists every tweet from most to least recent; the **New Tweet**
+button opens a form to create and persist one. Tweets are stored in a local
+`tweets.db` SQLite file, so they survive server restarts.
+
+### Test it
+
+```bash
+cargo test
+```
+
+The integration tests exercise the persistence layer against a throwaway
+SQLite database and never touch the on-disk `tweets.db`.
