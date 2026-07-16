@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>New Tweet</title>
+</head>
+<body>
+    <h1>New Tweet</h1>
+    <form method="post" action="/tweets">
+        <p>
+            <label for="author_name">Name</label>
+            <input type="text" id="author_name" name="author_name">
+        </p>
+        <p>
+            <label for="body">Tweet</label>
+            <input type="text" id="body" name="body">
+        </p>
+        <button type="submit">Tweet</button>
+    </form>
+    <p><a href="/">Back to home</a></p>
+</body>
+</html>

@@ -1,6 +1,7 @@
 use axum::{routing::get, Router};
 
 mod db;
+mod templates;
 
 #[tokio::main]
 async fn main() {
