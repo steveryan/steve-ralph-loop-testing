@@ -1,60 +1,14 @@
 // Integration tests for the persistence layer (src/db.rs).
 //
-// `twitter-clone` is a binary crate, so the `db` module isn't exposed as a
-// library. We include the source directly with `#[path]` and exercise it
-// against a throwaway SQLite database in the system temp directory, so the
-// tests never touch the on-disk `tweets.db`.
+// The crate is now split into a library (`twitter_clone`) plus a thin binary,
+// so the `db` module is imported normally instead of textually re-included.
+// Each test runs against a throwaway SQLite database in the system temp
+// directory (see `common::TempDb`), so the tests never touch `tweets.db`.
 
-#[path = "../src/db.rs"]
-mod db;
+mod common;
 
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A unique, self-cleaning SQLite database file in the system temp directory.
-struct TempDb {
-    path: PathBuf,
-}
-
-impl TempDb {
-    fn new() -> Self {
-        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let mut path = std::env::temp_dir();
-        path.push(format!(
-            "twitter_clone_test_{}_{}.db",
-            std::process::id(),
-            n
-        ));
-        let tmp = TempDb { path };
-        tmp.remove_files();
-        tmp
-    }
-
-    fn path_str(&self) -> &str {
-        self.path.to_str().expect("temp path is valid utf-8")
-    }
-
-    fn sidecar(&self, suffix: &str) -> PathBuf {
-        let mut s = self.path.clone().into_os_string();
-        s.push(suffix);
-        PathBuf::from(s)
-    }
-
-    fn remove_files(&self) {
-        // Ignore errors: the files may not exist yet.
-        let _ = std::fs::remove_file(&self.path);
-        let _ = std::fs::remove_file(self.sidecar("-wal"));
-        let _ = std::fs::remove_file(self.sidecar("-shm"));
-    }
-}
-
-impl Drop for TempDb {
-    fn drop(&mut self) {
-        self.remove_files();
-    }
-}
+use common::TempDb;
+use twitter_clone::db;
 
 #[tokio::test]
 async fn insert_then_list_returns_inserted_tweet() {
