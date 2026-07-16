@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Twitter Clone</title>
+</head>
+<body>
+    <h1>Tweets</h1>
+    <p><a href="/new">New Tweet</a></p>
+    {% if tweets.is_empty() %}
+    <p>No tweets yet</p>
+    {% else %}
+    <ul>
+        {% for tweet in tweets %}
+        <li>
+            <strong>{{ tweet.author_name }}</strong>
+            <p>{{ tweet.body }}</p>
+            <time>{{ tweet.created }}</time>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</body>
+</html>
